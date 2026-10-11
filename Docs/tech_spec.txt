@@ -1,0 +1,176 @@
+# Projeto MyBooks
+
+## 1\. Coleta de requisitos
+
+### O que o projeto precisa resolver
+
+O MyBooks será uma biblioteca digital pessoal para ajudar leitores a organizar seus livros e acompanhar suas leituras. O sistema permitirá:
+
+- Cadastrar livros lidos e livros que o usuário deseja ler.
+- Registrar avaliações em estrelas e comentários sobre livros lidos.
+- Consultar listas separadas de livros lidos e desejados.
+- Descobrir livros em tendência.
+
+### Quem o projeto vai atender
+
+O sistema será voltado a leitores que querem manter seu histórico de leitura, organizar futuras leituras e guardar suas opiniões sobre as obras. No protótipo, cada usuário terá sua própria biblioteca.
+
+### Requisitos iniciais
+
+- Criar uma conta e entrar no sistema.
+- Adicionar livros com título, autor e, opcionalmente, capa e sinopse.
+- Informar se o livro foi lido ou se está na lista de desejos.
+- Avaliar livros lidos de 1 a 5 estrelas e escrever um comentário opcional.
+- Consultar e atualizar as listas de leitura.
+- Acessar uma seção de livros em tendência.
+
+## 2\. Que solução vou oferecer
+
+Será oferecida uma aplicação web de biblioteca pessoal. O frontend será construído com HTML, CSS, JavaScript e React. O backend usará Python, Django e Django REST Framework para gerenciar os dados e disponibilizá-los por uma API.
+
+O usuário poderá cadastrar livros, organizar sua biblioteca em duas listas — **Lidos** e **Desejados** — e registrar notas e comentários sobre as obras concluídas. Uma seção apresentará livros em tendência. Para o protótipo, esses destaques poderão ser definidos por uma lista inicial; em versões futuras, a seleção poderá considerar leituras e avaliações dos usuários.
+
+## 3\. Definição de regras de negócio
+
+1. Cada usuário deve ter uma conta para acessar sua biblioteca.
+2. Cada usuário só pode consultar e alterar os próprios registros da biblioteca.
+3. Um livro pode estar na lista **Desejados** ou **Lidos** de cada usuário.
+4. O mesmo livro não pode aparecer duplicado na mesma lista do usuário.
+5. Ao marcar um livro como lido, o usuário poderá atribuir uma nota de 1 a 5 estrelas e escrever um comentário opcional.
+6. Apenas livros marcados como lidos podem receber avaliações.
+7. Cada usuário pode manter uma única avaliação por livro, podendo editá-la ou removê-la.
+8. Ao passar um livro de desejado para lido, seu status na biblioteca deve ser atualizado.
+9. Remover um livro da biblioteca de um usuário não deve apagar o cadastro geral da obra nem afetar outros usuários.
+10. No protótipo, a lista de tendências será administrada pelo sistema. A regra para calcular tendências automaticamente poderá ser definida em uma versão futura.
+
+## 4\. Controle de riscos
+
+| Risco | Impacto | Medida de controle |
+|---|---|---|
+| Acesso indevido aos dados dos usuários | Alto | Implementar autenticação e verificar permissões em todas as operações da API. |
+| Perda de dados | Alto | Manter cópias de segurança e validar operações de criação, edição e remoção. |
+| Cadastro duplicado de livros | Médio | Verificar se a obra já existe no catálogo antes de criar um novo registro. |
+| Avaliação ligada ao livro ou usuário errado | Médio | Validar no backend a relação entre usuário, livro, status de leitura e avaliação. |
+| Tendências pouco relevantes no protótipo | Baixo | Começar com uma seleção administrada pelo sistema e revisar o critério em versões futuras. |
+| Aumento de escopo ou atrasos | Médio | Priorizar as funções essenciais e deixar recursos adicionais para etapas posteriores. |
+
+## 5\. Modelagem
+
+### Entidades principais
+
+**Usuário**
+
+- Identificador
+- Nome
+- E-mail
+- Senha armazenada de forma segura
+
+**Livro**
+
+- Identificador
+- Título
+- Autor
+- Sinopse (opcional)
+- Capa (opcional)
+- Data de publicação (opcional)
+
+**Biblioteca do usuário**
+
+- Identificador
+- Usuário
+- Livro
+- Status: desejado ou lido
+- Data em que foi adicionado
+
+**Avaliação**
+
+- Identificador
+- Usuário
+- Livro
+- Nota de 1 a 5 estrelas
+- Comentário (opcional)
+- Data da avaliação
+
+### Relacionamentos
+
+- Um usuário pode incluir vários livros em sua biblioteca.
+- Um livro pode aparecer nas bibliotecas de vários usuários.
+- A biblioteca relaciona usuários e livros, registrando o status de leitura de cada pessoa.
+- Uma avaliação pertence a um usuário e a um livro que ele marcou como lido.
+
+```
+Usuário ──< Biblioteca do usuário >── Livro
+   │                                     │
+   └──────────< Avaliação >─────────────┘
+```
+
+## 6\. Diagramação
+
+A interface deve facilitar o acesso às funções mais usadas e funcionar bem em computadores e celulares.
+
+### Navegação principal
+
+- **Início**
+- **Meus livros**
+- **Tendências**
+- **Adicionar livro**
+- **Minha conta**
+
+### Telas principais
+
+**Início:** resumo das listas, atalhos para adicionar livros e alguns destaques de tendências.
+
+**Meus livros:** listas ou abas para **Lidos** e **Desejados**. Cada livro pode aparecer em um card com capa, título e autor. Nos livros lidos, também podem aparecer a nota e um atalho para o comentário.
+
+**Adicionar livro:** formulário com dados da obra e a pergunta “Você já leu este livro?”. Se a resposta for sim, o sistema oferece campos para nota e comentário. Se for não, adiciona o livro à lista de desejados.
+
+**Tendências:** grade ou lista de livros em destaque, com opção para adicionar uma obra aos desejados.
+
+### Fluxo para adicionar um livro
+
+```
+Adicionar livro
+      ↓
+Informar os dados da obra
+      ↓
+Você já leu este livro?
+   ├─ Sim → Avaliar e comentar → Adicionar aos Lidos
+   └─ Não → Adicionar aos Desejados
+```
+
+## 7\. Plano de ação
+
+1. **Definir o escopo do protótipo:** confirmar campos obrigatórios, escala de avaliação e telas essenciais.
+2. **Modelar os dados:** definir entidades, relacionamentos e regras no banco de dados.
+3. **Preparar o backend:** criar o projeto Django, configurar o DRF e implementar autenticação e endpoints da API.
+4. **Preparar o frontend:** criar a estrutura React, navegação e componentes visuais responsivos.
+5. **Implementar os fluxos principais:** cadastro e acesso, adição de livros, listas e avaliações.
+6. **Implementar tendências:** exibir uma seleção inicial de livros em destaque.
+7. **Verificar os fluxos do protótipo:** conferir se as ações principais funcionam e se os dados aparecem corretamente na interface.
+8. **Revisar e documentar:** registrar como executar o projeto e quais funções ficam para versões futuras.
+
+## 8\. Desenvolvimento
+
+O desenvolvimento será organizado em frontend e backend, conectados por uma API REST.
+
+### Backend
+
+Com Python, Django e Django REST Framework, serão implementados:
+
+- Modelos para usuários, livros, biblioteca e avaliações.
+- Endpoints para consultar e atualizar os dados.
+- Autenticação e controle de acesso por usuário.
+- Validações das regras de negócio, incluindo status de leitura e escala de notas.
+
+### Frontend
+
+Com React, HTML, CSS e JavaScript, serão implementados:
+
+- Telas de início, biblioteca, tendências e cadastro de livros.
+- Formulários para adicionar livros, notas e comentários.
+- Componentes para exibir livros em cards e organizar as listas.
+- Layout responsivo para telas menores e maiores.
+
+### Escopo inicial do protótipo
+
+A primeira versão deve permitir que uma pessoa crie uma conta, adicione livros, organize-os como lidos ou desejados e avalie os que leu. A seção de tendências pode usar dados cadastrados previamente. Recursos como integração com catálogos externos, recomendações personalizadas e interação entre usuários podem ser considerados depois.
