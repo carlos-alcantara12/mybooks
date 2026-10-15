@@ -27,6 +27,8 @@ Em produção, `DEBUG` fica desativado por padrão, PostgreSQL é obrigatório, 
 
 ## Autenticação e API
 
+Referência detalhada de endpoints, payloads, permissões e erros: [API.md](API.md).
+
 - `POST /api/auth/register/`: cria uma conta (`username`, `email` e `password`; nome e sobrenome opcionais).
 - `POST /api/auth/token/`: recebe usuário e senha e retorna tokens JWT.
 - `POST /api/auth/token/refresh/`: renova o token de acesso.
