@@ -27,10 +27,8 @@ def _save_validated(instance):
             instance.save()
     except DjangoValidationError as error:
         _raise_api_validation_error(error)
-    except IntegrityError:
-        raise serializers.ValidationError(
-            {"detail": "O registro conflita com dados já cadastrados."}
-        )
+    except IntegrityError as error:
+        _raise_integrity_conflict(error, model_name=instance._meta.model_name)
     return instance
 
 
@@ -39,6 +37,33 @@ def _candidate(instance, model, attrs):
     for field, value in attrs.items():
         setattr(candidate, field, value)
     return candidate
+
+
+def _raise_integrity_conflict(error, model_name=None):
+    """Turn database uniqueness races into field-level API errors."""
+    cause = error.__cause__
+    constraint = getattr(getattr(cause, "diag", None), "constraint_name", "")
+    database_error = str(cause or error).casefold()
+    marker = f"{constraint} {database_error}".casefold()
+
+    conflicts = (
+        ("unique_book_title_author_ci", "backend_book", "title", "Este livro já existe no catálogo."),
+        ("unique_user_library_book", "backend_libraryentry", "book_id", "Este livro já está na sua biblioteca."),
+        ("unique_user_book_review", "backend_review", "book_id", "Você já avaliou este livro."),
+        ("", "username", "username", "Este nome de usuário já está em uso."),
+        ("", "email", "email", "Este e-mail já está cadastrado."),
+    )
+    for constraint_name, table_or_field, field, message in conflicts:
+        if constraint_name and constraint_name in marker:
+            raise serializers.ValidationError({field: message})
+        if table_or_field in marker:
+            if table_or_field in ("username", "email") and model_name != "user":
+                continue
+            raise serializers.ValidationError({field: message})
+
+    raise serializers.ValidationError(
+        {"detail": "O registro conflita com dados já cadastrados; atualize os dados e tente novamente."}
+    )
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -53,7 +78,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+        try:
+            with transaction.atomic():
+                return User.objects.create_user(**validated_data)
+        except IntegrityError as error:
+            _raise_integrity_conflict(error, model_name="user")
 
 
 class BookSerializer(serializers.ModelSerializer):
