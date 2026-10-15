@@ -11,6 +11,10 @@
 
 O modo local usa SQLite e uma chave de desenvolvimento. Não use essa chave em produção. As migrações do app `Backend` ficam versionadas em `migrations/`; crie novas migrações com `python manage.py makemigrations Backend` após alterar os modelos.
 
+## Testes automatizados
+
+Com o ambiente virtual ativo e `DJANGO_DEBUG=true`, execute `python manage.py test Backend.tests`. Os testes usam o banco temporário do Django e cobrem autenticação, isolamento de dados, duplicidades, regras de avaliação e permissões de tendências.
+
 ## Produção
 
 1. Copie `.env.example` para `.env` e substitua todos os valores de exemplo; `.env` é ignorado pelo Git.
