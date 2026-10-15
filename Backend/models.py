@@ -5,6 +5,8 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 from django.db.models.functions import Lower
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 from django.utils import timezone
 
 
@@ -32,6 +34,19 @@ class Book(models.Model):
         constraints = [models.UniqueConstraint(Lower("title"), Lower("author"), name="unique_book_title_author_ci")]
         verbose_name = "livro"
         verbose_name_plural = "livros"
+
+    def clean(self):
+        super().clean()
+        if self.title and self.author:
+            duplicate = Book.objects.filter(title__iexact=self.title, author__iexact=self.author)
+            if self.pk:
+                duplicate = duplicate.exclude(pk=self.pk)
+            if duplicate.exists():
+                raise ValidationError({"title": "Este livro já existe no catálogo."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.title} — {self.author}"
@@ -62,9 +77,9 @@ class LibraryEntry(models.Model):
         if self.user_id and self.book_id and self.status == self.Status.WISHLIST and Review.objects.filter(user_id=self.user_id, book_id=self.book_id).exists():
             raise ValidationError({"status": "Remova a avaliação antes de mover o livro para Desejados."})
 
-    def delete(self, using=None, keep_parents=False):
-        Review.objects.filter(user_id=self.user_id, book_id=self.book_id).delete()
-        return super().delete(using=using, keep_parents=keep_parents)
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     class Meta:
         constraints = [
@@ -119,8 +134,18 @@ class Review(models.Model):
         ).exists():
             raise ValidationError({"book": "Só é possível avaliar um livro marcado como lido."})
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.book}: {self.rating}/5 — {self.user}"
+
+
+@receiver(pre_delete, sender=LibraryEntry)
+def delete_review_when_library_entry_is_removed(sender, instance, **kwargs):
+    """A review exists only while its owner keeps the book in their library."""
+    Review.objects.filter(user_id=instance.user_id, book_id=instance.book_id).delete()
 
 
 class TrendingBook(models.Model):
