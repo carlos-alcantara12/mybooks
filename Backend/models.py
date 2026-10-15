@@ -74,6 +74,12 @@ class LibraryEntry(models.Model):
 
     def clean(self):
         super().clean()
+        if self.user_id and self.book_id:
+            duplicate = LibraryEntry.objects.filter(user_id=self.user_id, book_id=self.book_id)
+            if self.pk:
+                duplicate = duplicate.exclude(pk=self.pk)
+            if duplicate.exists():
+                raise ValidationError({"book": "Este livro já está na sua biblioteca."})
         if self.user_id and self.book_id and self.status == self.Status.WISHLIST and Review.objects.filter(user_id=self.user_id, book_id=self.book_id).exists():
             raise ValidationError({"status": "Remova a avaliação antes de mover o livro para Desejados."})
 
@@ -127,6 +133,12 @@ class Review(models.Model):
 
     def clean(self):
         super().clean()
+        if self.user_id and self.book_id:
+            duplicate = Review.objects.filter(user_id=self.user_id, book_id=self.book_id)
+            if self.pk:
+                duplicate = duplicate.exclude(pk=self.pk)
+            if duplicate.exists():
+                raise ValidationError({"book": "Você já avaliou este livro."})
         if self.user_id and self.book_id and not LibraryEntry.objects.filter(
             user_id=self.user_id,
             book_id=self.book_id,
