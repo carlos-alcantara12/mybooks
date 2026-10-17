@@ -26,7 +26,7 @@ O sistema será voltado a leitores que querem manter seu histórico de leitura, 
 
 ## 2\. Que solução vou oferecer
 
-Será oferecida uma aplicação web de biblioteca pessoal. O frontend será construído com HTML, CSS, JavaScript e React. O backend usará Python, Django e Django REST Framework para gerenciar os dados e disponibilizá-los por uma API.
+Será oferecida uma aplicação web de bibliotecas pessoais e compartilhadas. O frontend será construído com HTML, CSS, JavaScript e React. O backend usará Python, Django e Django REST Framework para gerenciar os dados e disponibilizá-los por uma API.
 
 O usuário poderá cadastrar livros, organizar sua biblioteca nas categorias **Quero ler**, **Lendo** e **Lido**, e registrar notas e comentários sobre as obras concluídas. Uma seção apresentará livros em tendência. Para o protótipo, esses destaques poderão ser definidos por uma lista inicial; em versões futuras, a seleção poderá considerar leituras e avaliações dos usuários.
 
@@ -42,8 +42,11 @@ O usuário poderá cadastrar livros, organizar sua biblioteca nas categorias **Q
 8. O status de leitura de cada livro deve ser atualizado conforme o usuário avança entre **Quero ler**, **Lendo** e **Lido**.
 8.1. O número de páginas lidas pertence ao registro individual do usuário e não pode exceder o total de páginas da obra.
 8.2. Para marcar um livro como **Lido**, o total de páginas deve estar cadastrado e ser igual ao número de páginas lidas pelo usuário.
-9. Remover um livro da biblioteca de um usuário não deve apagar o cadastro geral da obra nem afetar outros usuários.
-10. No protótipo, a lista de tendências será administrada pelo sistema. A regra para calcular tendências automaticamente poderá ser definida em uma versão futura.
+9. Uma biblioteca compartilhada mantém uma lista comum de livros e registros de leitura individuais por participante.
+9.1. Convites para bibliotecas compartilhadas são enviados e respondidos dentro do MyBooks; não dependem de e-mail externo.
+9.2. Cada livro compartilhado registra quem o adicionou. A remoção por outro participante requer autorização, cujo fluxo será implementado em etapa posterior.
+10. Remover um livro da biblioteca de um usuário não deve apagar o cadastro geral da obra nem afetar outros usuários.
+11. No protótipo, a lista de tendências será administrada pelo sistema. A regra para calcular tendências automaticamente poderá ser definida em uma versão futura.
 
 ## 4\. Controle de riscos
 
@@ -86,6 +89,19 @@ O usuário poderá cadastrar livros, organizar sua biblioteca nas categorias **Q
 - Status: Quero ler, Lendo ou Lido
 - Páginas lidas por aquele usuário
 - Data em que foi adicionado
+
+**Biblioteca compartilhada**
+
+- Identificador e nome
+- Proprietário e participantes
+- Livros compartilhados, com registro de quem os adicionou
+- Status e páginas lidas individualmente por participante
+
+**Convite interno**
+
+- Biblioteca e participantes remetente/destinatário
+- Status pendente, aceito ou recusado
+- Datas de envio e resposta
 
 **Avaliação**
 

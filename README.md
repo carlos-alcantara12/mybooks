@@ -4,7 +4,7 @@ O **MyBooks** é uma aplicação web para organizar livros e acompanhar a vida d
 
 Além de ser útil no dia a dia, o projeto serve como exemplo prático de desenvolvimento de software: reúne modelagem de dados, API REST, autenticação, regras de negócio, validação de informações e uma base para a futura construção de uma interface web.
 
-> **Estado do projeto nesta versão:** o backend Django e sua API estão presentes no pacote. A API já oferece as categorias `WANT_TO_READ`, `READING` e `READ`, além de gênero, total de páginas e progresso individual. A pasta `Frontend_react` está vazia nesta cópia. Bibliotecas compartilhadas, timer, gráficos e a experiência visual descrita abaixo ainda precisam ser implementados.
+> **Estado do projeto nesta versão:** o backend Django e sua API oferecem biblioteca pessoal, biblioteca compartilhada com convites internos, categorias de leitura, gênero, total de páginas e progresso individual. A pasta `Frontend_react` está vazia nesta cópia. Timer, gráficos, pedidos de remoção de livros de outras pessoas e a experiência visual descrita abaixo ainda precisam ser implementados.
 
 ---
 
@@ -71,13 +71,13 @@ O usuário registra as páginas lidas em seu próprio item da biblioteca. Esse n
 
 ### Biblioteca compartilhada e correio interno
 
-Dois usuários poderão organizar uma biblioteca em conjunto. Os convites chegarão ao correio interno do MyBooks em formato de carta animada, sem depender de e-mail externo. A pessoa convidada poderá aceitar ou recusar o convite.
+Usuários podem organizar livros em uma biblioteca em conjunto. O backend já oferece bibliotecas, participantes e convites dentro do MyBooks, sem envio de e-mail externo. A pessoa convidada pode aceitar ou recusar; a animação da carta e o correio visual dependem do frontend.
 
-Os participantes veem a estante comum, mas mantêm seus próprios status de leitura, progresso, avaliações e sessões. Cada livro adicionado à estante compartilhada fica associado a quem o incluiu. Se o outro participante quiser removê-lo, deverá enviar um pedido; o responsável receberá uma notificação e poderá permitir ou recusar a remoção.
+Os participantes veem a estante comum, mas mantêm seus próprios status de leitura, progresso e avaliações. Cada livro adicionado à estante compartilhada fica associado a quem o incluiu. Atualmente, só quem adicionou pode removê-lo; pedidos de autorização para remover livros de outra pessoa e suas notificações ainda serão implementados.
 
 ### Progresso, gráficos e timer
 
-O usuário poderá acompanhar páginas lidas e percentual concluído por livro, além de consultar resumos diários, semanais e mensais de páginas e livros concluídos. Um timer de leitura permitirá registrar sessões e definir metas de tempo. Os dados e comparações serão individuais, inclusive dentro de uma biblioteca compartilhada.
+O backend registra páginas lidas por usuário, calcula validações contra o total e mantém esse progresso individual também em livros compartilhados. Gráficos e resumos diários, semanais e mensais ainda serão feitos no frontend; o timer e as metas de tempo também permanecem planejados.
 
 ### Estante e experiência visual
 
@@ -174,6 +174,10 @@ Com o backend em execução, a API fica sob o prefixo `/api/`.
 | `/api/library/` | Consultar e gerenciar a biblioteca do usuário autenticado |
 | `/api/reviews/` | Consultar e gerenciar as avaliações do usuário autenticado |
 | `/api/trending/` | Consultar livros em tendência; alterar a lista como administrador |
+| `/api/shared-libraries/` | Criar e consultar bibliotecas compartilhadas |
+| `/api/shared-invitations/` | Consultar, enviar e responder convites internos |
+| `/api/shared-books/` | Consultar e adicionar livros às estantes compartilhadas |
+| `/api/shared-reading/` | Consultar e atualizar o progresso individual em livros compartilhados |
 | `/admin/` | Acessar a administração do Django |
 
 Os endpoints de listagem e detalhe são fornecidos pelo Django REST Framework. Para operações protegidas, envie o token no cabeçalho:
@@ -377,9 +381,9 @@ A área de tendências cria uma base para discutir curadoria, descoberta de cont
 Possíveis melhorias futuras, a serem priorizadas conforme o objetivo do projeto:
 
 1. **Dados e API de leitura:** integrar o progresso por páginas à interface e validar os fluxos de conclusão e avaliação.
-2. **Biblioteca compartilhada:** implementar participantes, convites em correio interno, notificações e pedidos de remoção de livros.
+2. **Pedidos de remoção:** permitir solicitar autorização para retirar livros adicionados por outra pessoa e notificar o responsável.
 3. **Progresso e timer:** registrar sessões, metas de tempo e históricos necessários aos resumos diários, semanais e mensais.
-4. **Frontend React:** implementar as categorias **Quero ler**, **Lendo** e **Lido**, gráficos e telas da biblioteca.
+4. **Frontend React:** implementar as categorias, gráficos, correio visual e telas da biblioteca.
 5. **Estante animada:** criar a estante de madeira, interação com livros, visualização aberta com resumo e suporte a capas.
 6. **Tela de entrada:** animar a escrita de MyBooks e apresentar uma frase literária variável com autoria e ação para prosseguir.
 7. **Busca e filtros:** permitir pesquisar por título ou autor e filtrar a biblioteca.
@@ -388,15 +392,14 @@ Possíveis melhorias futuras, a serem priorizadas conforme o objetivo do projeto
 
 ## 12. Escopo atual e próximos passos
 
-Esta cópia contém a base do backend: modelos, serializadores, views, rotas, configuração de autenticação JWT e integração com o Django Admin. A API pessoal aceita os status **Quero ler**, **Lendo** e **Lido**, registra páginas lidas por usuário e inclui gênero e total de páginas no catálogo. O diretório `Frontend_react` está vazio. A biblioteca compartilhada, o correio interno, timer, gráficos e a interface animada são requisitos definidos para as próximas etapas, não recursos já disponíveis.
+Esta cópia contém a base do backend: modelos, serializadores, views, rotas, autenticação JWT, integração com o Django Admin, biblioteca compartilhada, convites internos e progresso individual. O diretório `Frontend_react` está vazio. Timer, gráficos, pedidos de remoção e experiência visual animada são requisitos definidos para as próximas etapas.
 
 Uma sequência de trabalho recomendada é:
 
-1. evoluir os modelos e a API para registrar páginas, progresso e gênero;
-2. implementar biblioteca compartilhada, convites internos e permissões de remoção;
-3. implementar sessões de leitura, metas e resumos;
-4. construir o frontend React e a estante animada responsiva;
-5. validar os fluxos e preparar segurança e ambiente de produção antes de publicar.
+1. implementar pedidos de remoção com autorização e notificações;
+2. implementar sessões de leitura, metas e resumos;
+3. construir o frontend React, correio visual e estante animada responsiva;
+4. validar os fluxos e preparar segurança e ambiente de produção antes de publicar.
 
 O objetivo é evoluir o **mesmo projeto MyBooks**, mantendo a documentação junto ao código e registrando aqui mudanças relevantes de arquitetura e execução.
 

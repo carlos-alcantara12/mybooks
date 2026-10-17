@@ -6,7 +6,18 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
-from .models import Book, LibraryEntry, Review, TrendingBook
+from .models import (
+    Book,
+    LibraryEntry,
+    Review,
+    SharedLibrary,
+    SharedLibraryBook,
+    SharedLibraryInvitation,
+    SharedLibraryMembership,
+    SharedLibraryReading,
+    TrendingBook,
+    User,
+)
 
 User = get_user_model()
 
@@ -181,3 +192,174 @@ class TrendingBookSerializer(serializers.ModelSerializer):
         model = TrendingBook
         fields = ("id", "book", "book_id", "position", "featured_at")
         read_only_fields = ("id", "featured_at")
+
+
+class SharedLibrarySerializer(serializers.ModelSerializer):
+    owner = serializers.SlugRelatedField(read_only=True, slug_field="username")
+    members = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SharedLibrary
+        fields = ("id", "name", "owner", "members", "created_at")
+        read_only_fields = ("id", "owner", "members", "created_at")
+
+    def get_members(self, instance):
+        return [membership.user.username for membership in instance.memberships.select_related("user")]
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        with transaction.atomic():
+            library = SharedLibrary.objects.create(owner=request.user, **validated_data)
+            SharedLibraryMembership.objects.create(shared_library=library, user=request.user)
+        return library
+
+
+class SharedLibraryReadingSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
+    book_id = serializers.IntegerField(read_only=True)
+    book_title = serializers.CharField(source="book.title", read_only=True)
+    shared_library_id = serializers.IntegerField(read_only=True, allow_null=True)
+
+    class Meta:
+        model = SharedLibraryReading
+        fields = (
+            "id", "username", "shared_library_id", "book_id", "book_title", "status", "pages_read", "updated_at"
+        )
+        read_only_fields = ("id", "username", "shared_library_id", "book_id", "book_title", "updated_at")
+
+    def validate(self, attrs):
+        candidate = _candidate(self.instance, SharedLibraryReading, attrs)
+        candidate.user = self.context["request"].user
+        try:
+            candidate.full_clean()
+        except DjangoValidationError as error:
+            _raise_api_validation_error(error)
+        return attrs
+
+    def update(self, instance, validated_data):
+        candidate = _candidate(instance, SharedLibraryReading, validated_data)
+        candidate.user = self.context["request"].user
+        return _save_validated(candidate)
+
+
+class SharedLibraryBookSerializer(serializers.ModelSerializer):
+    shared_library = SharedLibrarySerializer(read_only=True)
+    book = BookSerializer(read_only=True)
+    book_id = serializers.PrimaryKeyRelatedField(queryset=Book.objects.all(), source="book", write_only=True)
+    shared_library_id = serializers.PrimaryKeyRelatedField(
+        queryset=SharedLibrary.objects.all(), source="shared_library", write_only=True, required=True,
+    )
+    added_by = serializers.SlugRelatedField(read_only=True, slug_field="username")
+    reading_states = SharedLibraryReadingSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = SharedLibraryBook
+        fields = (
+            "id",
+            "shared_library",
+            "shared_library_id",
+            "book",
+            "book_id",
+            "added_by",
+            "added_at",
+            "reading_states",
+        )
+        read_only_fields = ("id", "added_by", "added_at", "reading_states")
+
+    def validate(self, attrs):
+        library = attrs.get("shared_library", getattr(self.instance, "shared_library", None))
+        request = self.context["request"]
+        if library and not SharedLibraryMembership.objects.filter(shared_library=library, user=request.user).exists():
+            raise serializers.ValidationError({"shared_library_id": "Você não participa desta biblioteca."})
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        library = validated_data["shared_library"]
+        book = validated_data["book"]
+        with transaction.atomic():
+            book_entry = _save_validated(SharedLibraryBook(shared_library=library, added_by=request.user, book=book))
+            for membership in library.memberships.select_related("user"):
+                ensure_shared_reading_state(book_entry, membership.user)
+        return book_entry
+
+
+class SharedLibraryInvitationSerializer(serializers.ModelSerializer):
+    shared_library = SharedLibrarySerializer(read_only=True)
+    shared_library_id = serializers.PrimaryKeyRelatedField(
+        queryset=SharedLibrary.objects.all(), source="shared_library", write_only=True,
+    )
+    sender = serializers.SlugRelatedField(read_only=True, slug_field="username")
+    recipient = serializers.SlugRelatedField(read_only=True, slug_field="username")
+    recipient_username = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = SharedLibraryInvitation
+        fields = (
+            "id",
+            "shared_library",
+            "shared_library_id",
+            "sender",
+            "recipient",
+            "recipient_username",
+            "status",
+            "created_at",
+            "responded_at",
+        )
+        read_only_fields = ("id", "sender", "recipient", "status", "created_at", "responded_at")
+
+    def validate(self, attrs):
+        request = self.context["request"]
+        library = attrs["shared_library"]
+        if library.owner_id != request.user.id:
+            raise serializers.ValidationError({"shared_library_id": "Somente o proprietário pode enviar convites."})
+        username = attrs.pop("recipient_username")
+        try:
+            recipient = User.objects.get(username=username)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({"recipient_username": "Não existe uma conta com esse nome de usuário."})
+        if recipient == request.user:
+            raise serializers.ValidationError({"recipient_username": "Não é possível convidar a si mesmo."})
+        if SharedLibraryMembership.objects.filter(shared_library=library, user=recipient).exists():
+            raise serializers.ValidationError({"recipient_username": "Este usuário já participa da biblioteca."})
+        if SharedLibraryInvitation.objects.filter(
+            shared_library=library,
+            recipient=recipient,
+            status=SharedLibraryInvitation.Status.PENDING,
+        ).exists():
+            raise serializers.ValidationError({"recipient_username": "Já existe um convite pendente para este usuário."})
+        attrs["recipient"] = recipient
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        return _save_validated(
+            SharedLibraryInvitation(sender=request.user, status=SharedLibraryInvitation.Status.PENDING, **validated_data)
+        )
+
+
+def ensure_shared_reading_state(shared_book, user):
+    personal_entry = LibraryEntry.objects.filter(user=user, book=shared_book.book).first()
+    if personal_entry:
+        defaults = {"status": personal_entry.status, "pages_read": personal_entry.pages_read}
+    else:
+        existing_state = SharedLibraryReading.objects.filter(
+            user=user,
+            book=shared_book.book,
+        ).order_by("-updated_at").first()
+        defaults = (
+            {"status": existing_state.status, "pages_read": existing_state.pages_read}
+            if existing_state
+            else {}
+        )
+    if defaults.get("status") == LibraryEntry.Status.READ and shared_book.book.total_pages is None:
+        defaults = {"status": LibraryEntry.Status.READING, "pages_read": 0}
+    state, created = SharedLibraryReading.objects.get_or_create(
+        shared_library=shared_book.shared_library,
+        user=user,
+        book=shared_book.book,
+        defaults={**defaults, "shared_book": shared_book},
+    )
+    if not created and state.shared_book_id is None:
+        state.shared_book = shared_book
+        state.save()
