@@ -60,6 +60,7 @@ A resposta `200` contém um novo `access`.
 | `/api/shared-reading/` | Apenas o próprio progresso, visível também na estante compartilhada | Criado automaticamente | Cada participante edita apenas o próprio progresso |
 | `/api/shared-invitations/` | Remetente e destinatário | Proprietário envia convite | Destinatário aceita/recusa; remetente cancela convite pendente |
 | `/api/shared-removal-requests/` | Solicitante e responsável pela decisão | Participante pede remoção de livro adicionado por outra pessoa | Quem adicionou aprova ou recusa |
+| `/api/mailbox/` | Apenas o destinatário | Reúne cartas e notificações recebidas | A abertura é registrada nos recursos de origem |
 
 As rotas de biblioteca e avaliações não aceitam `user_id` no corpo. Um usuário não pode consultar ou alterar registros de outra pessoa.
 
@@ -136,6 +137,8 @@ A resposta inclui `id`, `status`, `pages_read`, `added_at` e o objeto `book` do 
 
 `GET /api/shared-invitations/` lista os convites enviados e recebidos pela pessoa autenticada. Essa lista serve de caixa de entrada do convite no site; não é enviado e-mail externo.
 
+`GET /api/mailbox/` reúne convites e pedidos de remoção recebidos em uma única caixa de entrada, ordenados do mais recente ao mais antigo. Cada item informa seu tipo, remetente, assunto, conteúdo, status, data de abertura e ações disponíveis. A resposta também inclui `unread_count` para exibir a quantidade de cartas ainda não abertas. A caixa retorna apenas itens recebidos pelo usuário autenticado.
+
 O proprietário convida uma conta MyBooks pelo nome de usuário:
 
 `POST /api/shared-invitations/`
@@ -144,7 +147,7 @@ O proprietário convida uma conta MyBooks pelo nome de usuário:
 {"shared_library_id": 3, "recipient_username": "bia"}
 ```
 
-O convite começa como `PENDING`. O destinatário pode responder por `POST /api/shared-invitations/{id}/accept/` ou `/decline/`. O remetente pode cancelar um convite ainda pendente com `DELETE /api/shared-invitations/{id}/`. Convites duplicados pendentes para a mesma biblioteca e pessoa são bloqueados.
+O convite começa como `PENDING`. Para registrar a abertura da carta, o destinatário chama `POST /api/shared-invitations/{id}/open/`; a resposta inclui `opened_at`. O destinatário pode responder por `POST /api/shared-invitations/{id}/accept/` ou `/decline/`. O remetente pode cancelar um convite ainda pendente com `DELETE /api/shared-invitations/{id}/`. Convites duplicados pendentes para a mesma biblioteca e pessoa são bloqueados.
 
 Ao aceitar, a pessoa passa a ser participante e ganha registros individuais de leitura para os livros que já estão na estante compartilhada. O proprietário e o destinatário aparecem como participantes da biblioteca.
 
@@ -170,7 +173,7 @@ Quem adicionou o livro pode removê-lo diretamente com `DELETE /api/shared-books
 {"shared_book_id": 12}
 ```
 
-A solicitação aparece como notificação interna para quem adicionou o livro. `GET /api/shared-removal-requests/` lista pedidos enviados e recebidos; cada registro inclui livro, biblioteca, solicitante, responsável e status. Somente a pessoa responsável pode responder com `POST /api/shared-removal-requests/{id}/approve/` ou `/deny/`. Ao aprovar, a obra é removida da estante; ao recusar, ela permanece. Solicitações pendentes duplicadas para a mesma obra são bloqueadas. O histórico individual de progresso permanece disponível em `/api/shared-reading/` após a remoção.
+A solicitação aparece como notificação interna para quem adicionou o livro. `GET /api/shared-removal-requests/` lista pedidos enviados e recebidos; cada registro inclui livro, biblioteca, solicitante, responsável e status. A pessoa responsável registra a abertura com `POST /api/shared-removal-requests/{id}/open/` e pode responder com `POST /api/shared-removal-requests/{id}/approve/` ou `/deny/`. Ao aprovar, a obra é removida da estante; ao recusar, ela permanece. Solicitações pendentes duplicadas para a mesma obra são bloqueadas. O histórico individual de progresso permanece disponível em `/api/shared-reading/` após a remoção.
 
 ### Avaliações
 

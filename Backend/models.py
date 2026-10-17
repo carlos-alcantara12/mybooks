@@ -359,6 +359,7 @@ class SharedLibraryInvitation(models.Model):
     )
     status = models.CharField("status", max_length=8, choices=Status.choices, default=Status.PENDING)
     created_at = models.DateTimeField("enviada em", auto_now_add=True)
+    opened_at = models.DateTimeField("aberta em", null=True, blank=True)
     responded_at = models.DateTimeField("respondida em", null=True, blank=True)
 
     class Meta:
@@ -437,6 +438,7 @@ class SharedBookRemovalRequest(models.Model):
     )
     status = models.CharField("status", max_length=8, choices=Status.choices, default=Status.PENDING)
     created_at = models.DateTimeField("solicitada em", auto_now_add=True)
+    opened_at = models.DateTimeField("aberta em", null=True, blank=True)
     responded_at = models.DateTimeField("respondida em", null=True, blank=True)
 
     class Meta:

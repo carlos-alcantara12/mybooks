@@ -305,9 +305,10 @@ class SharedLibraryInvitationSerializer(serializers.ModelSerializer):
             "recipient_username",
             "status",
             "created_at",
+            "opened_at",
             "responded_at",
         )
-        read_only_fields = ("id", "sender", "recipient", "status", "created_at", "responded_at")
+        read_only_fields = ("id", "sender", "recipient", "status", "created_at", "opened_at", "responded_at")
 
     def validate(self, attrs):
         request = self.context["request"]
@@ -350,7 +351,7 @@ class SharedBookRemovalRequestSerializer(serializers.ModelSerializer):
         model = SharedBookRemovalRequest
         fields = (
             "id", "shared_book_id", "book_title", "shared_library_name", "requested_by", "recipient",
-            "status", "created_at", "responded_at",
+            "status", "created_at", "opened_at", "responded_at",
         )
         read_only_fields = fields
 

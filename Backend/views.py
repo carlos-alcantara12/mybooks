@@ -2,6 +2,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import generics, mixins, permissions, status, viewsets
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
@@ -31,6 +32,54 @@ from .serializers import (
     UserRegistrationSerializer,
     ensure_shared_reading_state,
 )
+
+
+class MailboxView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        letters = []
+        invitations = SharedLibraryInvitation.objects.filter(recipient=request.user).select_related(
+            "sender", "shared_library"
+        )
+        for invitation in invitations:
+            letters.append({
+                "type": "INVITATION",
+                "id": invitation.pk,
+                "title": f"Convite para {invitation.shared_library.name}",
+                "message": f"{invitation.sender.username} convidou você para uma biblioteca compartilhada.",
+                "sender": invitation.sender.username,
+                "shared_library": invitation.shared_library.name,
+                "status": invitation.status,
+                "created_at": invitation.created_at,
+                "opened_at": invitation.opened_at,
+                "is_opened": invitation.opened_at is not None,
+                "actions": ["accept", "decline"] if invitation.status == SharedLibraryInvitation.Status.PENDING else [],
+            })
+
+        removal_requests = SharedBookRemovalRequest.objects.filter(recipient=request.user).select_related(
+            "requested_by", "shared_library", "book"
+        )
+        for removal_request in removal_requests:
+            letters.append({
+                "type": "BOOK_REMOVAL_REQUEST",
+                "id": removal_request.pk,
+                "title": f"Pedido para remover {removal_request.book.title}",
+                "message": f"{removal_request.requested_by.username} pediu para retirar esta obra da estante compartilhada.",
+                "sender": removal_request.requested_by.username,
+                "shared_library": removal_request.shared_library.name if removal_request.shared_library else None,
+                "book_title": removal_request.book.title,
+                "status": removal_request.status,
+                "created_at": removal_request.created_at,
+                "opened_at": removal_request.opened_at,
+                "is_opened": removal_request.opened_at is not None,
+                "actions": ["approve", "deny"] if removal_request.status == SharedBookRemovalRequest.Status.PENDING else [],
+            })
+
+        letters.sort(key=lambda letter: letter["created_at"], reverse=True)
+        unread_count = sum(not letter["is_opened"] for letter in letters)
+        return Response({"unread_count": unread_count, "results": letters})
+
 
 class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
@@ -140,6 +189,16 @@ class SharedLibraryInvitationViewSet(viewsets.ModelViewSet):
         instance.delete()
 
     @action(detail=True, methods=["post"])
+    def open(self, request, pk=None):
+        invitation = self.get_object()
+        if invitation.recipient_id != request.user.id:
+            raise PermissionDenied("Somente a pessoa destinatária pode abrir esta carta.")
+        if invitation.opened_at is None:
+            invitation.opened_at = timezone.now()
+            invitation.save(update_fields=["opened_at"])
+        return Response(self.get_serializer(invitation).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
     def accept(self, request, pk=None):
         invitation = self.get_object()
         if invitation.recipient_id != request.user.id:
@@ -153,6 +212,7 @@ class SharedLibraryInvitationViewSet(viewsets.ModelViewSet):
                 raise ValidationError({"status": "Este convite já foi respondido."})
             invitation.status = SharedLibraryInvitation.Status.ACCEPTED
             invitation.responded_at = timezone.now()
+            invitation.opened_at = invitation.opened_at or timezone.now()
             invitation.save()
             SharedLibraryMembership.objects.get_or_create(
                 shared_library=invitation.shared_library,
@@ -172,6 +232,7 @@ class SharedLibraryInvitationViewSet(viewsets.ModelViewSet):
             raise ValidationError({"status": "Este convite já foi respondido."})
         invitation.status = SharedLibraryInvitation.Status.DECLINED
         invitation.responded_at = timezone.now()
+        invitation.opened_at = invitation.opened_at or timezone.now()
         invitation.save()
         return Response(self.get_serializer(invitation).data, status=status.HTTP_200_OK)
 
@@ -184,6 +245,16 @@ class SharedBookRemovalRequestViewSet(mixins.ListModelMixin, mixins.RetrieveMode
         return SharedBookRemovalRequest.objects.filter(
             Q(requested_by=self.request.user) | Q(recipient=self.request.user)
         ).select_related("book", "shared_library", "requested_by", "recipient", "shared_book")
+
+    @action(detail=True, methods=["post"])
+    def open(self, request, pk=None):
+        removal_request = self.get_object()
+        if removal_request.recipient_id != request.user.id:
+            raise PermissionDenied("Somente a pessoa destinatária pode abrir esta notificação.")
+        if removal_request.opened_at is None:
+            removal_request.opened_at = timezone.now()
+            removal_request.save(update_fields=["opened_at"])
+        return Response(self.get_serializer(removal_request).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
@@ -201,6 +272,7 @@ class SharedBookRemovalRequestViewSet(mixins.ListModelMixin, mixins.RetrieveMode
             shared_book = SharedLibraryBook.objects.select_for_update().get(pk=shared_book.pk)
             removal_request.status = SharedBookRemovalRequest.Status.APPROVED
             removal_request.responded_at = timezone.now()
+            removal_request.opened_at = removal_request.opened_at or timezone.now()
             removal_request.save()
             shared_book.delete()
             removal_request.refresh_from_db()
@@ -215,5 +287,6 @@ class SharedBookRemovalRequestViewSet(mixins.ListModelMixin, mixins.RetrieveMode
             raise ValidationError({"status": "Esta solicitação já foi respondida."})
         removal_request.status = SharedBookRemovalRequest.Status.DENIED
         removal_request.responded_at = timezone.now()
+        removal_request.opened_at = removal_request.opened_at or timezone.now()
         removal_request.save()
         return Response(self.get_serializer(removal_request).data, status=status.HTTP_200_OK)

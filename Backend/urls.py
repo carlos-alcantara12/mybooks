@@ -3,6 +3,7 @@ from django.urls import include, path
 from .views import (
     BookViewSet,
     LibraryEntryViewSet,
+    MailboxView,
     RegisterView,
     ReviewViewSet,
     SharedBookRemovalRequestViewSet,
@@ -24,4 +25,8 @@ router.register("shared-reading", SharedLibraryReadingViewSet, basename="shared-
 router.register("shared-invitations", SharedLibraryInvitationViewSet, basename="shared-invitation")
 router.register("shared-removal-requests", SharedBookRemovalRequestViewSet, basename="shared-removal-request")
 
-urlpatterns = [path("auth/register/", RegisterView.as_view(), name="register"), path("", include(router.urls))]
+urlpatterns = [
+    path("auth/register/", RegisterView.as_view(), name="register"),
+    path("mailbox/", MailboxView.as_view(), name="mailbox"),
+    path("", include(router.urls)),
+]
