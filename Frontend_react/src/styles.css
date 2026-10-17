@@ -15,6 +15,18 @@
   --paper: #f3eee4;
   --accent: #8a6244;
   --shelf: #755138;
+  --ink-soft: #51473d;
+  --surface: rgba(255, 252, 246, .78);
+  --surface-border: rgba(117, 81, 56, .19);
+  --control-border: rgba(117, 81, 56, .28);
+  --focus-ring: rgba(138, 98, 68, .42);
+  --danger: #9a3e32;
+  --success: #536542;
+  --radius-control: 6px;
+  --radius-card: 10px;
+  --shadow-surface: 0 10px 26px rgba(64, 45, 28, .07);
+  --shadow-raised: 0 15px 32px rgba(64, 45, 28, .12);
+  --motion-ui: .2s ease;
 }
 
 * { box-sizing: border-box; }
@@ -499,6 +511,20 @@ button { color: inherit; }
 @keyframes cover-open { from { transform: rotateY(19deg); } to { transform: rotateY(0); } }
 @keyframes envelope-flap-open { from { transform: translateX(-50%) rotate(45deg); } to { transform: translateX(-50%) rotate(225deg); } }
 @keyframes letter-rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Shared visual tokens for the product interface */
+:where(button, a, input, select, textarea):focus-visible { outline-color: var(--accent); }
+.library-landing :is(input, select, textarea) { border-radius: var(--radius-control); border-color: var(--control-border); transition: border-color var(--motion-ui), box-shadow var(--motion-ui), background-color var(--motion-ui); }
+.library-landing :is(input, select, textarea):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; box-shadow: 0 0 0 3px rgba(138, 98, 68, .09); }
+.library-primary-button, .catalog-add-button, .shared-mailbox-button { border-radius: var(--radius-control); transition: color var(--motion-ui), background var(--motion-ui), border-color var(--motion-ui), box-shadow var(--motion-ui), transform var(--motion-ui); }
+.library-primary-button:hover:not(:disabled), .catalog-add-button:hover:not(:disabled), .shared-mailbox-button:hover { box-shadow: 0 5px 13px rgba(65, 45, 29, .16); }
+.login-layout, .library-filters, .reading-timer, .reading-chart, .explore-search, .catalog-card, .shared-form-card, .shared-mailbox, .shared-shelf-panel { border-color: var(--surface-border); border-radius: var(--radius-card); }
+.library-filters, .explore-search, .catalog-card, .reading-timer, .reading-chart, .shared-form-card, .shared-mailbox, .shared-shelf-panel { box-shadow: var(--shadow-surface); }
+.catalog-card:hover { box-shadow: var(--shadow-raised); }
+.library-navigation { border-color: var(--surface-border); border-radius: var(--radius-card); }
+.library-navigation button { border-radius: var(--radius-control); }
+.library-error, .explore-error, .book-dialog__error { color: var(--danger); }
+.catalog-feedback.is-success { color: var(--success); }
 
 @media (min-width: 601px) and (max-width: 800px) {
   .library-landing.has-navigation { padding: 20px 28px 106px; }
