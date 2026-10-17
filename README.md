@@ -1,10 +1,10 @@
 # MyBooks — Biblioteca Digital Pessoal
 
-O **MyBooks** é um projeto de aplicação web pensado para ajudar leitores a organizar sua vida literária em um só lugar. A proposta é permitir que cada pessoa mantenha um catálogo pessoal de livros, acompanhe o que já leu, planeje futuras leituras e registre suas opiniões sobre as obras.
+O **MyBooks** é uma aplicação web para organizar livros e acompanhar a vida de leitura. A proposta inclui bibliotecas pessoais e compartilhadas, progresso por páginas, avaliações, sessões de leitura e uma experiência visual imersiva inspirada em uma estante física.
 
 Além de ser útil no dia a dia, o projeto serve como exemplo prático de desenvolvimento de software: reúne modelagem de dados, API REST, autenticação, regras de negócio, validação de informações e uma base para a futura construção de uma interface web.
 
-> **Estado do projeto nesta versão:** o backend Django e sua API estão presentes no pacote. A pasta `Frontend_react` está vazia nesta cópia; portanto, a interface React prevista na especificação ainda precisa ser desenvolvida ou integrada. As funcionalidades descritas abaixo distinguem o que já existe no backend da experiência visual planejada.
+> **Estado do projeto nesta versão:** o backend Django e sua API estão presentes no pacote. A pasta `Frontend_react` está vazia nesta cópia. Bibliotecas compartilhadas, progresso por páginas, timer, gráficos e a experiência visual descrita abaixo são requisitos planejados e ainda precisam ser implementados. A API atual ainda usa os status `WISHLIST` e `READ`; as categorias **Quero ler**, **Lendo** e **Lido** fazem parte da evolução planejada.
 
 ---
 
@@ -29,13 +29,15 @@ Quem lê com frequência pode ter dificuldade para lembrar quais livros já term
 
 A aplicação foi pensada para:
 
-- manter um histórico de leitura;
-- organizar uma lista de próximas leituras;
-- registrar notas de 1 a 5 estrelas e comentários;
+- organizar livros nas categorias **Quero ler**, **Lendo** e **Lido**;
+- acompanhar o avanço da leitura por páginas e gráficos;
+- registrar notas de 1 a 5 estrelas e comentários pessoais;
+- cronometrar sessões de leitura e acompanhar metas de tempo;
+- montar uma biblioteca compartilhada com outra pessoa;
 - consultar livros cadastrados no catálogo;
 - destacar livros selecionados como tendências.
 
-O projeto começa como uma biblioteca pessoal. Em versões futuras, poderá evoluir para uma plataforma de descoberta e recomendação de livros.
+O projeto combina o acompanhamento individual de cada leitor com a possibilidade de organizar livros em conjunto. Recursos sociais mais amplos e recomendações personalizadas poderão ser considerados em versões futuras.
 
 ## 2. Principais funcionalidades
 
@@ -52,17 +54,36 @@ Cada obra pode conter:
 - sinopse opcional;
 - URL da capa opcional;
 - data de publicação opcional.
+- gênero;
+- número total de páginas.
 
 O catálogo é compartilhado entre usuários. O backend valida possíveis duplicidades considerando título e autor sem diferenciar maiúsculas e minúsculas.
 
 ### Biblioteca pessoal
 
-Cada usuário pode incluir uma obra em sua própria biblioteca e classificá-la como:
+Cada usuário poderá incluir uma obra em sua biblioteca e classificá-la como:
 
-- **Desejado (`WISHLIST`)** — livro que pretende ler;
-- **Lido (`READ`)** — livro que já concluiu.
+- **Quero ler** — livro planejado para leitura;
+- **Lendo** — livro em andamento, com progresso individual em páginas;
+- **Lido** — livro concluído.
 
-A mesma obra não pode ser adicionada duas vezes à biblioteca do mesmo usuário. Remover uma entrada da biblioteca não apaga o livro do catálogo compartilhado.
+Para marcar um livro como **Lido**, as páginas lidas devem ser iguais ao total de páginas cadastrado. O catálogo é compartilhado, mas status, progresso, avaliações, comentários e sessões de leitura pertencem a cada usuário.
+
+### Biblioteca compartilhada e correio interno
+
+Dois usuários poderão organizar uma biblioteca em conjunto. Os convites chegarão ao correio interno do MyBooks em formato de carta animada, sem depender de e-mail externo. A pessoa convidada poderá aceitar ou recusar o convite.
+
+Os participantes veem a estante comum, mas mantêm seus próprios status de leitura, progresso, avaliações e sessões. Cada livro adicionado à estante compartilhada fica associado a quem o incluiu. Se o outro participante quiser removê-lo, deverá enviar um pedido; o responsável receberá uma notificação e poderá permitir ou recusar a remoção.
+
+### Progresso, gráficos e timer
+
+O usuário poderá acompanhar páginas lidas e percentual concluído por livro, além de consultar resumos diários, semanais e mensais de páginas e livros concluídos. Um timer de leitura permitirá registrar sessões e definir metas de tempo. Os dados e comparações serão individuais, inclusive dentro de uma biblioteca compartilhada.
+
+### Estante e experiência visual
+
+A interface planejada terá uma estante realista de madeira com livros físicos e capas originais quando disponíveis. Ao passar o mouse, um livro se inclina para fora; ao selecioná-lo, é retirado e aberto para mostrar capa, título, autor, **resumo da obra**, gênero, total e progresso de páginas, categoria e avaliação pessoal. Se uma capa não estiver disponível, a interface poderá exibir uma capa padrão.
+
+Na entrada do site, **MyBooks** será escrito com caligrafia elegante. A tela também exibirá uma frase literária diferente a cada abertura, acompanhada do título da obra e do autor. O usuário prosseguirá por clique, toque ou tecla Enter. A interface será responsiva e terá alternativa para dispositivos que preferem movimento reduzido.
 
 ### Avaliações e comentários
 
@@ -78,19 +99,20 @@ O Django Admin permite que administradores autorizados gerenciem os registros co
 
 ## 3. Como funciona na prática
 
-Um fluxo típico de uso seria:
+Um fluxo previsto de uso seria:
 
 1. A pessoa cria uma conta e obtém um token de acesso.
 2. Consulta o catálogo ou cadastra uma obra, conforme suas permissões.
-3. Adiciona o livro à própria biblioteca como `WISHLIST` ou `READ`.
-4. Se já leu a obra, registra uma avaliação de 1 a 5 e um comentário opcional.
-5. Consulta sua biblioteca e a seleção de livros em tendência.
+3. Adiciona o livro à biblioteca como **Quero ler** ou **Lendo**.
+4. Atualiza as páginas lidas, acompanha gráficos e pode cronometrar sessões.
+5. Ao atingir o total de páginas, marca o livro como **Lido** e pode registrar uma avaliação de 1 a 5 estrelas e um comentário.
+6. Se desejar, aceita um convite recebido no correio interno e participa de uma biblioteca compartilhada.
 
-A interface visual descrita na especificação deverá organizar esses fluxos em páginas como **Início**, **Meus livros**, **Tendências**, **Adicionar livro** e **Minha conta**. Essas telas dependem da implementação do frontend, ainda não incluído nesta cópia.
+Esses fluxos dependem da implementação do frontend, ainda não incluído nesta cópia. A estante animada, a abertura dos livros e a tela de entrada literária fazem parte da experiência planejada.
 
 ## 4. Regras de negócio e proteção dos dados
 
-O backend aplica regras importantes para manter a consistência:
+O backend atual aplica regras importantes para manter a consistência:
 
 - Os endpoints da API exigem autenticação por padrão, exceto o cadastro de conta.
 - Cada usuário consulta e altera apenas suas próprias entradas da biblioteca e avaliações.
@@ -100,6 +122,8 @@ O backend aplica regras importantes para manter a consistência:
 - A API impede que um livro seja duplicado na biblioteca da mesma pessoa.
 - A edição e a remoção de livros do catálogo e a manutenção das tendências são restritas a administradores.
 - A remoção de uma entrada da biblioteca também remove a avaliação associada àquela obra para aquele usuário, sem apagar o livro do catálogo compartilhado.
+
+Na evolução planejada, um livro só poderá ser marcado como **Lido** quando as páginas lidas forem iguais ao total cadastrado.
 
 **Observação de segurança:** a configuração incluída é apropriada para desenvolvimento local, não para publicação direta em produção. Antes de disponibilizar o sistema publicamente, configure uma chave secreta forte por variável de ambiente, desative o modo de depuração, defina os hosts permitidos, escolha e configure um banco de dados de produção e revise HTTPS, CORS/CSRF conforme a arquitetura, backups, logs e políticas de acesso.
 
@@ -113,6 +137,7 @@ O backend aplica regras importantes para manter a consistência:
 | Simple JWT | Autenticação por tokens de acesso e renovação |
 | SQLite | Banco de dados configurado para desenvolvimento local |
 | React, HTML, CSS e JavaScript | Tecnologias previstas para a interface web; frontend ainda não presente nesta cópia |
+| Biblioteca de animação para frontend | A definir durante a implementação da estante, dos livros e da tela de entrada |
 
 ## 6. Arquitetura do projeto
 
@@ -225,6 +250,8 @@ A configuração padrão é voltada ao ambiente local. Não publique o sistema c
 ## 9. Exemplos de uso da API
 
 Os exemplos abaixo ilustram o formato das requisições. Execute primeiro o servidor e substitua os valores ilustrativos pelos IDs e tokens retornados pela sua instalação.
+
+> Os exemplos refletem a API atualmente implementada, que usa `WISHLIST` e `READ`. As categorias **Quero ler**, **Lendo** e **Lido**, com validação do total de páginas, ainda serão implementadas.
 
 ### Criar uma conta
 
@@ -349,28 +376,27 @@ A área de tendências cria uma base para discutir curadoria, descoberta de cont
 
 Possíveis melhorias futuras, a serem priorizadas conforme o objetivo do projeto:
 
-1. **Frontend React:** implementar as telas previstas e conectar os formulários à API.
-2. **Testes automatizados:** testar autenticação, permissões, validações e fluxos da biblioteca.
-3. **Busca e filtros:** permitir pesquisar por título ou autor e filtrar por status.
-4. **Integração com catálogo externo:** obter metadados e capas por uma fonte apropriada, respeitando os termos de uso.
-5. **Tendências baseadas em dados:** definir critérios mensuráveis, como leituras recentes, e não apenas uma lista manual.
-6. **Recomendações personalizadas:** sugerir obras com base em preferências, avaliações e histórico, com critérios transparentes.
-7. **Banco de dados de produção:** migrar de SQLite para uma solução adequada à hospedagem escolhida.
-8. **Deploy e observabilidade:** configurar ambiente de produção, logs, monitoramento e backups.
-9. **Acessibilidade e experiência de uso:** garantir navegação por teclado, contraste adequado e interface adaptável.
-10. **Documentação interativa da API:** disponibilizar uma especificação OpenAPI/Swagger, após configurar e validar essa integração.
+1. **Dados e API de leitura:** adicionar gêneros e total de páginas ao catálogo; registrar status e progresso individual; validar conclusão e avaliações.
+2. **Biblioteca compartilhada:** implementar participantes, convites em correio interno, notificações e pedidos de remoção de livros.
+3. **Progresso e timer:** registrar sessões, metas de tempo e históricos necessários aos resumos diários, semanais e mensais.
+4. **Frontend React:** implementar as categorias **Quero ler**, **Lendo** e **Lido**, gráficos e telas da biblioteca.
+5. **Estante animada:** criar a estante de madeira, interação com livros, visualização aberta com resumo e suporte a capas.
+6. **Tela de entrada:** animar a escrita de MyBooks e apresentar uma frase literária variável com autoria e ação para prosseguir.
+7. **Busca e filtros:** permitir pesquisar por título ou autor e filtrar a biblioteca.
+8. **Integração com catálogo externo:** avaliar uma fonte apropriada para metadados e capas, respeitando os termos de uso.
+9. **Produção e qualidade:** revisar testes, acessibilidade, banco de dados, segurança, deploy, observabilidade e backups.
 
 ## 12. Escopo atual e próximos passos
 
-Esta cópia contém a base do backend: modelos, serializadores, views, rotas, configuração de autenticação JWT e integração com o Django Admin. O diretório `Frontend_react` está vazio no arquivo fornecido, e este README não afirma que uma interface completa já esteja disponível.
+Esta cópia contém a base do backend: modelos, serializadores, views, rotas, configuração de autenticação JWT e integração com o Django Admin. O diretório `Frontend_react` está vazio. A biblioteca compartilhada, o correio interno, o progresso por páginas, timer, gráficos e a interface animada são requisitos definidos para as próximas etapas, não recursos já disponíveis.
 
 Uma sequência de trabalho recomendada é:
 
-1. validar a instalação e as migrações do backend;
-2. testar os endpoints e as permissões;
-3. criar testes automatizados para as regras de negócio;
-4. implementar o frontend React e integrá-lo à API;
-5. revisar a segurança e configurar o ambiente de produção antes de publicar.
+1. evoluir os modelos e a API para registrar páginas, progresso e gênero;
+2. implementar biblioteca compartilhada, convites internos e permissões de remoção;
+3. implementar sessões de leitura, metas e resumos;
+4. construir o frontend React e a estante animada responsiva;
+5. validar os fluxos e preparar segurança e ambiente de produção antes de publicar.
 
 O objetivo é evoluir o **mesmo projeto MyBooks**, mantendo a documentação junto ao código e registrando aqui mudanças relevantes de arquitetura e execução.
 
