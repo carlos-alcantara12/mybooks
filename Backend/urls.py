@@ -5,6 +5,7 @@ from .views import (
     LibraryEntryViewSet,
     RegisterView,
     ReviewViewSet,
+    SharedBookRemovalRequestViewSet,
     SharedLibraryBookViewSet,
     SharedLibraryInvitationViewSet,
     SharedLibraryReadingViewSet,
@@ -21,5 +22,6 @@ router.register("shared-libraries", SharedLibraryViewSet, basename="shared-libra
 router.register("shared-books", SharedLibraryBookViewSet, basename="shared-book")
 router.register("shared-reading", SharedLibraryReadingViewSet, basename="shared-reading")
 router.register("shared-invitations", SharedLibraryInvitationViewSet, basename="shared-invitation")
+router.register("shared-removal-requests", SharedBookRemovalRequestViewSet, basename="shared-removal-request")
 
 urlpatterns = [path("auth/register/", RegisterView.as_view(), name="register"), path("", include(router.urls))]

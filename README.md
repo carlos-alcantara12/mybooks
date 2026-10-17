@@ -4,7 +4,7 @@ O **MyBooks** é uma aplicação web para organizar livros e acompanhar a vida d
 
 Além de ser útil no dia a dia, o projeto serve como exemplo prático de desenvolvimento de software: reúne modelagem de dados, API REST, autenticação, regras de negócio, validação de informações e uma base para a futura construção de uma interface web.
 
-> **Estado do projeto nesta versão:** o backend Django e sua API oferecem biblioteca pessoal, biblioteca compartilhada com convites internos, categorias de leitura, gênero, total de páginas e progresso individual. A pasta `Frontend_react` está vazia nesta cópia. Timer, gráficos, pedidos de remoção de livros de outras pessoas e a experiência visual descrita abaixo ainda precisam ser implementados.
+> **Estado do projeto nesta versão:** o backend Django e sua API oferecem biblioteca pessoal e compartilhada, convites e pedidos internos de remoção com aprovação, categorias de leitura, gênero, total de páginas e progresso individual. A pasta `Frontend_react` está vazia nesta cópia. Timer, gráficos e a experiência visual descrita abaixo ainda precisam ser implementados.
 
 ---
 
@@ -73,7 +73,7 @@ O usuário registra as páginas lidas em seu próprio item da biblioteca. Esse n
 
 Usuários podem organizar livros em uma biblioteca em conjunto. O backend já oferece bibliotecas, participantes e convites dentro do MyBooks, sem envio de e-mail externo. A pessoa convidada pode aceitar ou recusar; a animação da carta e o correio visual dependem do frontend.
 
-Os participantes veem a estante comum, mas mantêm seus próprios status de leitura, progresso e avaliações. Cada livro adicionado à estante compartilhada fica associado a quem o incluiu. Atualmente, só quem adicionou pode removê-lo; pedidos de autorização para remover livros de outra pessoa e suas notificações ainda serão implementados.
+Os participantes veem a estante comum, mas mantêm seus próprios status de leitura, progresso e avaliações. Cada livro adicionado à estante compartilhada fica associado a quem o incluiu. Quem adicionou pode remover diretamente; outro participante pode enviar um pedido interno, que chega como notificação para a pessoa responsável. Ela pode aprovar a remoção ou recusá-la. O progresso individual permanece guardado após a retirada da obra da estante.
 
 ### Progresso, gráficos e timer
 
@@ -178,6 +178,7 @@ Com o backend em execução, a API fica sob o prefixo `/api/`.
 | `/api/shared-invitations/` | Consultar, enviar e responder convites internos |
 | `/api/shared-books/` | Consultar e adicionar livros às estantes compartilhadas |
 | `/api/shared-reading/` | Consultar e atualizar o progresso individual em livros compartilhados |
+| `/api/shared-removal-requests/` | Consultar, enviar e responder a pedidos internos de remoção de livros |
 | `/admin/` | Acessar a administração do Django |
 
 Os endpoints de listagem e detalhe são fornecidos pelo Django REST Framework. Para operações protegidas, envie o token no cabeçalho:
@@ -392,7 +393,7 @@ Possíveis melhorias futuras, a serem priorizadas conforme o objetivo do projeto
 
 ## 12. Escopo atual e próximos passos
 
-Esta cópia contém a base do backend: modelos, serializadores, views, rotas, autenticação JWT, integração com o Django Admin, biblioteca compartilhada, convites internos e progresso individual. O diretório `Frontend_react` está vazio. Timer, gráficos, pedidos de remoção e experiência visual animada são requisitos definidos para as próximas etapas.
+Esta cópia contém a base do backend: modelos, serializadores, views, rotas, autenticação JWT, integração com o Django Admin, biblioteca compartilhada, convites e pedidos internos de remoção com autorização. O diretório `Frontend_react` está vazio. Timer, gráficos e experiência visual animada são requisitos definidos para as próximas etapas.
 
 Uma sequência de trabalho recomendada é:
 

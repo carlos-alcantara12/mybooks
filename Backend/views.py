@@ -10,6 +10,7 @@ from .models import (
     Book,
     LibraryEntry,
     Review,
+    SharedBookRemovalRequest,
     SharedLibrary,
     SharedLibraryBook,
     SharedLibraryInvitation,
@@ -25,6 +26,7 @@ from .serializers import (
     SharedLibraryInvitationSerializer,
     SharedLibraryReadingSerializer,
     SharedLibrarySerializer,
+    SharedBookRemovalRequestSerializer,
     TrendingBookSerializer,
     UserRegistrationSerializer,
     ensure_shared_reading_state,
@@ -172,3 +174,46 @@ class SharedLibraryInvitationViewSet(viewsets.ModelViewSet):
         invitation.responded_at = timezone.now()
         invitation.save()
         return Response(self.get_serializer(invitation).data, status=status.HTTP_200_OK)
+
+
+class SharedBookRemovalRequestViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
+    serializer_class = SharedBookRemovalRequestSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return SharedBookRemovalRequest.objects.filter(
+            Q(requested_by=self.request.user) | Q(recipient=self.request.user)
+        ).select_related("book", "shared_library", "requested_by", "recipient", "shared_book")
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        with transaction.atomic():
+            removal_request = SharedBookRemovalRequest.objects.select_for_update().select_related(
+                "book", "shared_library", "requested_by", "recipient"
+            ).get(pk=self.get_object().pk)
+            if removal_request.recipient_id != request.user.id:
+                raise PermissionDenied("Somente quem adicionou o livro pode decidir esta solicitação.")
+            if removal_request.status != SharedBookRemovalRequest.Status.PENDING:
+                raise ValidationError({"status": "Esta solicitação já foi respondida."})
+            shared_book = removal_request.shared_book
+            if shared_book is None:
+                raise ValidationError({"shared_book_id": "O livro já não está na estante compartilhada."})
+            shared_book = SharedLibraryBook.objects.select_for_update().get(pk=shared_book.pk)
+            removal_request.status = SharedBookRemovalRequest.Status.APPROVED
+            removal_request.responded_at = timezone.now()
+            removal_request.save()
+            shared_book.delete()
+            removal_request.refresh_from_db()
+        return Response(self.get_serializer(removal_request).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"])
+    def deny(self, request, pk=None):
+        removal_request = self.get_object()
+        if removal_request.recipient_id != request.user.id:
+            raise PermissionDenied("Somente quem adicionou o livro pode decidir esta solicitação.")
+        if removal_request.status != SharedBookRemovalRequest.Status.PENDING:
+            raise ValidationError({"status": "Esta solicitação já foi respondida."})
+        removal_request.status = SharedBookRemovalRequest.Status.DENIED
+        removal_request.responded_at = timezone.now()
+        removal_request.save()
+        return Response(self.get_serializer(removal_request).data, status=status.HTTP_200_OK)

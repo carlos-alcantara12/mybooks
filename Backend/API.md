@@ -59,6 +59,7 @@ A resposta `200` contém um novo `access`.
 | `/api/shared-books/` | Participantes | Participante adiciona livro | Quem adicionou pode remover |
 | `/api/shared-reading/` | Apenas o próprio progresso, visível também na estante compartilhada | Criado automaticamente | Cada participante edita apenas o próprio progresso |
 | `/api/shared-invitations/` | Remetente e destinatário | Proprietário envia convite | Destinatário aceita/recusa; remetente cancela convite pendente |
+| `/api/shared-removal-requests/` | Solicitante e responsável pela decisão | Participante pede remoção de livro adicionado por outra pessoa | Quem adicionou aprova ou recusa |
 
 As rotas de biblioteca e avaliações não aceitam `user_id` no corpo. Um usuário não pode consultar ou alterar registros de outra pessoa.
 
@@ -161,7 +162,15 @@ Cada livro fica associado a quem o adicionou. Os participantes recebem um estado
 
 `GET /api/shared-reading/` lista os estados de leitura próprios; `GET /api/shared-reading/{id}/` consulta um estado e `PATCH /api/shared-reading/{id}/` atualiza a categoria ou as páginas lidas. A resposta da estante compartilhada também inclui o progresso de cada participante. O status `READ` mantém as mesmas validações de total de páginas da biblioteca pessoal.
 
-Quem adicionou o livro pode removê-lo com `DELETE /api/shared-books/{id}/`. A remoção de um livro adicionado por outra pessoa é bloqueada; o fluxo de pedido de autorização será implementado em uma etapa seguinte. Mesmo após a remoção do livro da estante ou da biblioteca compartilhada, o progresso individual permanece disponível em `/api/shared-reading/`.
+Quem adicionou o livro pode removê-lo diretamente com `DELETE /api/shared-books/{id}/`. Para pedir que outra pessoa remova a obra, um participante envia:
+
+`POST /api/shared-removal-requests/`
+
+```json
+{"shared_book_id": 12}
+```
+
+A solicitação aparece como notificação interna para quem adicionou o livro. `GET /api/shared-removal-requests/` lista pedidos enviados e recebidos; cada registro inclui livro, biblioteca, solicitante, responsável e status. Somente a pessoa responsável pode responder com `POST /api/shared-removal-requests/{id}/approve/` ou `/deny/`. Ao aprovar, a obra é removida da estante; ao recusar, ela permanece. Solicitações pendentes duplicadas para a mesma obra são bloqueadas. O histórico individual de progresso permanece disponível em `/api/shared-reading/` após a remoção.
 
 ### Avaliações
 

@@ -37,7 +37,7 @@ Referência detalhada de endpoints, payloads, permissões e erros: [API.md](API.
 - `/api/library/`: biblioteca do usuário autenticado; recebe `book_id`, status `WANT_TO_READ`, `READING` ou `READ` e `pages_read` individual.
 - `/api/reviews/`: avaliações do usuário autenticado; recebe `book_id`, nota de 1 a 5 e comentário opcional.
 - `/api/trending/`: consulta autenticada; alterações somente por administradores.
-- `/api/shared-libraries/`, `/api/shared-books/`, `/api/shared-reading/` e `/api/shared-invitations/`: bibliotecas compartilhadas, estantes, progresso individual e convites internos.
+- `/api/shared-libraries/`, `/api/shared-books/`, `/api/shared-reading/`, `/api/shared-invitations/` e `/api/shared-removal-requests/`: bibliotecas compartilhadas, estantes, progresso individual, convites e pedidos internos de remoção.
 - `/admin/`: administração Django.
 
 A biblioteca e as avaliações são filtradas pelo usuário autenticado. Remover uma entrada não remove a obra do catálogo.

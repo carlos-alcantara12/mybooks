@@ -393,6 +393,90 @@ class SharedLibraryInvitation(models.Model):
         return f"Convite de {self.sender} para {self.recipient}: {self.shared_library}"
 
 
+class SharedBookRemovalRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pendente"
+        APPROVED = "APPROVED", "Aprovado"
+        DENIED = "DENIED", "Recusado"
+
+    shared_book = models.ForeignKey(
+        SharedLibraryBook,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="removal_requests",
+        verbose_name="livro compartilhado",
+    )
+    shared_library = models.ForeignKey(
+        SharedLibrary,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="book_removal_requests",
+        verbose_name="biblioteca compartilhada",
+    )
+    book = models.ForeignKey(
+        Book,
+        on_delete=models.CASCADE,
+        related_name="shared_removal_requests",
+        verbose_name="livro",
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="shared_book_removal_requests_sent",
+        verbose_name="solicitante",
+    )
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="shared_book_removal_requests_received",
+        verbose_name="responsável pela decisão",
+    )
+    status = models.CharField("status", max_length=8, choices=Status.choices, default=Status.PENDING)
+    created_at = models.DateTimeField("solicitada em", auto_now_add=True)
+    responded_at = models.DateTimeField("respondida em", null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["shared_book"],
+                condition=Q(status="PENDING") & Q(shared_book__isnull=False),
+                name="unique_pending_shared_book_removal_request",
+            ),
+        ]
+        ordering = ["-created_at"]
+        verbose_name = "solicitação de remoção de livro compartilhado"
+        verbose_name_plural = "solicitações de remoção de livros compartilhados"
+
+    def clean(self):
+        super().clean()
+        if not self.shared_book_id:
+            return
+        if self.shared_library_id != self.shared_book.shared_library_id:
+            raise ValidationError({"shared_library": "A biblioteca deve corresponder ao livro compartilhado."})
+        if self.book_id != self.shared_book.book_id:
+            raise ValidationError({"book": "A obra deve corresponder ao livro compartilhado."})
+        if self.recipient_id != self.shared_book.added_by_id:
+            raise ValidationError({"recipient": "A solicitação deve ser enviada a quem adicionou o livro."})
+        if self.requested_by_id == self.recipient_id:
+            raise ValidationError({"requested_by": "Quem adicionou o livro pode removê-lo diretamente."})
+        if not SharedLibraryMembership.objects.filter(
+            shared_library_id=self.shared_book.shared_library_id,
+            user_id=self.requested_by_id,
+        ).exists():
+            raise ValidationError({"requested_by": "A pessoa solicitante precisa participar da biblioteca."})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Remoção de {self.book} solicitada por {self.requested_by}"
+
+
 class Review(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

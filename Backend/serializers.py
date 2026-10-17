@@ -15,6 +15,7 @@ from .models import (
     SharedLibraryInvitation,
     SharedLibraryMembership,
     SharedLibraryReading,
+    SharedBookRemovalRequest,
     TrendingBook,
     User,
 )
@@ -336,6 +337,49 @@ class SharedLibraryInvitationSerializer(serializers.ModelSerializer):
         return _save_validated(
             SharedLibraryInvitation(sender=request.user, status=SharedLibraryInvitation.Status.PENDING, **validated_data)
         )
+
+
+class SharedBookRemovalRequestSerializer(serializers.ModelSerializer):
+    book_title = serializers.CharField(source="book.title", read_only=True)
+    shared_library_name = serializers.CharField(source="shared_library.name", read_only=True, allow_null=True)
+    requested_by = serializers.SlugRelatedField(read_only=True, slug_field="username")
+    recipient = serializers.SlugRelatedField(read_only=True, slug_field="username", allow_null=True)
+    shared_book_id = serializers.IntegerField(read_only=True, allow_null=True)
+
+    class Meta:
+        model = SharedBookRemovalRequest
+        fields = (
+            "id", "shared_book_id", "book_title", "shared_library_name", "requested_by", "recipient",
+            "status", "created_at", "responded_at",
+        )
+        read_only_fields = fields
+
+    def validate(self, attrs):
+        shared_book = self.initial_data.get("shared_book_id")
+        try:
+            shared_book = SharedLibraryBook.objects.select_related("book", "shared_library", "added_by").get(
+                pk=shared_book
+            )
+        except (SharedLibraryBook.DoesNotExist, TypeError, ValueError):
+            raise serializers.ValidationError({"shared_book_id": "Informe um livro existente na estante compartilhada."})
+
+        user = self.context["request"].user
+        if not SharedLibraryMembership.objects.filter(shared_library=shared_book.shared_library, user=user).exists():
+            raise serializers.ValidationError({"shared_book_id": "Você não participa desta biblioteca."})
+        if shared_book.added_by_id == user.id:
+            raise serializers.ValidationError({"shared_book_id": "Você pode remover diretamente um livro que adicionou."})
+        if SharedBookRemovalRequest.objects.filter(shared_book=shared_book, status=SharedBookRemovalRequest.Status.PENDING).exists():
+            raise serializers.ValidationError({"shared_book_id": "Já existe uma solicitação pendente para este livro."})
+        attrs["shared_book"] = shared_book
+        attrs["shared_library"] = shared_book.shared_library
+        attrs["book"] = shared_book.book
+        attrs["requested_by"] = user
+        attrs["recipient"] = shared_book.added_by
+        attrs["status"] = SharedBookRemovalRequest.Status.PENDING
+        return attrs
+
+    def create(self, validated_data):
+        return _save_validated(SharedBookRemovalRequest(**validated_data))
 
 
 def ensure_shared_reading_state(shared_book, user):

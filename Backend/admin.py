@@ -4,6 +4,7 @@ from .models import (
     Book,
     LibraryEntry,
     Review,
+    SharedBookRemovalRequest,
     SharedLibrary,
     SharedLibraryBook,
     SharedLibraryInvitation,
@@ -69,3 +70,10 @@ class SharedLibraryInvitationAdmin(admin.ModelAdmin):
     list_display = ("shared_library", "sender", "recipient", "status", "created_at")
     list_filter = ("status",)
     search_fields = ("shared_library__name", "sender__username", "recipient__username")
+
+
+@admin.register(SharedBookRemovalRequest)
+class SharedBookRemovalRequestAdmin(admin.ModelAdmin):
+    list_display = ("book", "shared_library", "requested_by", "recipient", "status", "created_at", "responded_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("book__title", "shared_library__name", "requested_by__username", "recipient__username")
