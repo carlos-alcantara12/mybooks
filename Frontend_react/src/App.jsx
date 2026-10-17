@@ -1082,7 +1082,7 @@ function LibraryLanding({ onReturn }) {
                       const isPulled = pulledBookId === entry.id;
                       return (
                         <button
-                          className={`shelf-volume${isPulled ? " is-pulled" : ""}`}
+                          className={`shelf-volume${entry.book.cover_url ? " has-cover" : ""}${isPulled ? " is-pulled" : ""}`}
                           key={entry.id}
                           type="button"
                           aria-haspopup="dialog"
@@ -1090,6 +1090,7 @@ function LibraryLanding({ onReturn }) {
                           style={{ "--spine-color": color, "--book-height": `${height}px` }}
                           onClick={() => { setPulledBookId(entry.id); setOpenedEntry(entry); }}
                         >
+                          {entry.book.cover_url && <img className="shelf-volume__cover" src={entry.book.cover_url} alt="" aria-hidden="true" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.hidden = true; event.currentTarget.parentElement.classList.remove("has-cover"); }} />}
                           <span className="shelf-volume__top" aria-hidden="true" />
                           <span className="shelf-volume__title">{entry.book.title}</span>
                           <span className="shelf-volume__author">{entry.book.author}</span>
