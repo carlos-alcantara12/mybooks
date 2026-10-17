@@ -138,6 +138,151 @@ function groupIntoShelves(items, shelfSize = 6) {
   return shelves;
 }
 
+function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated }) {
+  const [pagesRead, setPagesRead] = useState(entry.pages_read);
+  const [status, setStatus] = useState(entry.status);
+  const [review, setReview] = useState(null);
+  const [rating, setRating] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const book = entry.book;
+  const totalPages = book.total_pages;
+  const progress = totalPages ? Math.min(100, Math.round((pagesRead / totalPages) * 100)) : 0;
+  const canRate = status === "READ" && totalPages && Number(pagesRead) === totalPages
+    && entry.status === "READ" && entry.pages_read === totalPages;
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    let active = true;
+    catalogRequest("/reviews/", accessToken, onToken)
+      .then((data) => {
+        const reviews = Array.isArray(data) ? data : data.results || [];
+        const found = reviews.find((item) => item.book?.id === book.id);
+        if (active) {
+          setReview(found || null);
+          setRating(found?.rating || 0);
+        }
+      })
+      .catch((requestError) => { if (active) setError(requestError.message); });
+    return () => { active = false; };
+  }, [accessToken, book.id, onToken]);
+
+  async function saveReadingDetails(event) {
+    event.preventDefault();
+    const numericPages = Number(pagesRead);
+    if (!Number.isInteger(numericPages) || numericPages < 0 || (totalPages && numericPages > totalPages)) {
+      setError("Informe um número de páginas válido, dentro do total da obra.");
+      return;
+    }
+    if (status === "READ" && (!totalPages || numericPages !== totalPages)) {
+      setError("Para marcar como lido, as páginas lidas devem ser iguais ao total.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await catalogRequest(`/library/${entry.id}/`, accessToken, onToken, {
+        method: "PATCH",
+        body: JSON.stringify({ pages_read: numericPages, status }),
+      });
+      onEntryUpdated(updated);
+      setPagesRead(updated.pages_read);
+      setStatus(updated.status);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveRating(nextRating) {
+    if (status !== "READ" || !totalPages || Number(pagesRead) !== totalPages) {
+      setError("Conclua a leitura para avaliar esta obra.");
+      return;
+    }
+    setRating(nextRating);
+    setSaving(true);
+    setError("");
+    try {
+      const payload = { rating: nextRating };
+      const saved = await catalogRequest(review ? `/reviews/${review.id}/` : "/reviews/", accessToken, onToken, {
+        method: review ? "PATCH" : "POST",
+        body: JSON.stringify(review ? payload : { ...payload, book_id: book.id }),
+      });
+      setReview(saved);
+    } catch (requestError) {
+      setError(requestError.message);
+      setRating(review?.rating || 0);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="book-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="book-dialog" role="dialog" aria-modal="true" aria-labelledby="book-dialog-title">
+        <button className="book-dialog__close" type="button" onClick={onClose} aria-label="Fechar detalhes do livro">×</button>
+        <div className="book-dialog__book-open">
+          <div className="book-dialog__cover-page">
+            {book.cover_url ? <img src={book.cover_url} alt={`Capa de ${book.title}`} onError={(event) => { event.currentTarget.hidden = true; }} /> : <div className="book-dialog__cover-fallback">{book.title}</div>}
+          </div>
+          <div className="book-dialog__content-page">
+            <p className="book-dialog__eyebrow">sua obra</p>
+            <h2 id="book-dialog-title">{book.title}</h2>
+            <p className="book-dialog__author">{book.author}</p>
+            <div className="book-dialog__facts">
+              {book.genre && <span>{book.genre}</span>}
+              <span>{totalPages ? `${totalPages} páginas` : "Total de páginas não informado"}</span>
+              <span>{statusLabel(status)}</span>
+            </div>
+            <h3>Sobre a obra</h3>
+            <p className="book-dialog__synopsis">{book.synopsis || "Ainda não há um resumo cadastrado para esta obra."}</p>
+            <form className="book-dialog__reading-form" onSubmit={saveReadingDetails}>
+              <label>
+                Páginas lidas
+                <span className="book-dialog__pages-control">
+                  <input type="number" min="0" max={totalPages || undefined} value={pagesRead} onChange={(event) => setPagesRead(event.target.value)} />
+                  <span>/ {totalPages ?? "—"}</span>
+                </span>
+              </label>
+              <label>
+                Categoria
+                <select value={status} onChange={(event) => setStatus(event.target.value)}>
+                  <option value="WANT_TO_READ">Desejos</option>
+                  <option value="READING">Não lidos</option>
+                  <option value="READ">Já lidos</option>
+                </select>
+              </label>
+              {totalPages > 0 && <div className="book-dialog__progress" aria-label={`Progresso de leitura: ${progress}%`}>
+                <span style={{ width: `${progress}%` }} />
+              </div>}
+              {totalPages > 0 && <p className="book-dialog__progress-label">{progress}% da leitura concluída</p>}
+              <button className="library-primary-button" type="submit" disabled={saving}>{saving ? "salvando…" : "salvar progresso"}</button>
+            </form>
+            <div className="book-dialog__rating">
+              <p>Sua avaliação</p>
+              <div role="group" aria-label={status === "READ" ? "Avaliar de 1 a 5 estrelas" : "Avaliação disponível após concluir a leitura"}>
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button key={value} type="button" aria-label={`${value} ${value === 1 ? "estrela" : "estrelas"}`} aria-pressed={rating === value} disabled={saving || !canRate} onClick={() => saveRating(value)}>{value <= rating ? "★" : "☆"}</button>
+                ))}
+              </div>
+              {!canRate && <small>Salve a leitura completa para avaliar esta obra.</small>}
+            </div>
+            {error && <p className="book-dialog__error" role="alert">{error}</p>}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 async function catalogRequest(path, token, onToken, options = {}) {
   const send = (activeToken) => fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -353,6 +498,7 @@ function LibraryLanding({ onReturn }) {
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [entries, setEntries] = useState([]);
   const [pulledBookId, setPulledBookId] = useState(null);
+  const [openedEntry, setOpenedEntry] = useState(null);
   const [search, setSearch] = useState("");
   const [genre, setGenre] = useState("");
   const [status, setStatus] = useState("");
@@ -573,10 +719,10 @@ function LibraryLanding({ onReturn }) {
                           className={`shelf-volume${isPulled ? " is-pulled" : ""}`}
                           key={entry.id}
                           type="button"
-                          aria-pressed={isPulled}
-                          aria-label={`${entry.book.title}, de ${entry.book.author}. ${statusLabel(entry.status)}. ${isPulled ? "Devolver ? estante" : "Retirar levemente da estante"}.`}
+                          aria-haspopup="dialog"
+                          aria-label={`Abrir ${entry.book.title}, de ${entry.book.author}. ${statusLabel(entry.status)}.`}
                           style={{ "--spine-color": color, "--book-height": `${height}px` }}
-                          onClick={() => setPulledBookId(isPulled ? null : entry.id)}
+                          onClick={() => { setPulledBookId(entry.id); setOpenedEntry(entry); }}
                         >
                           <span className="shelf-volume__top" aria-hidden="true" />
                           <span className="shelf-volume__title">{entry.book.title}</span>
@@ -590,7 +736,7 @@ function LibraryLanding({ onReturn }) {
                 </section>
               ))}
               <p className="bookshelf-hint" aria-live="polite">
-                {pulledBookId ? "Livro inclinado para fora. Toque novamente para devolv?-lo ? estante." : "Passe o cursor ou toque em um livro para retir?-lo levemente da estante."}
+                {pulledBookId ? "Livro aberto para você consultar os detalhes." : "Passe o cursor para retirar um livro; clique para abri-lo."}
               </p>
             </div>
           ) : (
@@ -610,6 +756,16 @@ function LibraryLanding({ onReturn }) {
           )}
         </section>
       )}
+      {openedEntry && <BookDetailDialog
+        entry={openedEntry}
+        accessToken={accessToken}
+        onToken={setAccessToken}
+        onClose={() => { setOpenedEntry(null); setPulledBookId(null); }}
+        onEntryUpdated={(updated) => {
+          setEntries((current) => current.map((item) => item.id === updated.id ? updated : item));
+          setOpenedEntry(updated);
+        }}
+      />}
       <button className="back-to-welcome" type="button" onClick={onReturn}>voltar à abertura</button>
       <footer className="library-footer">MYBOOKS <span>·</span> UM CAPÍTULO DE CADA VEZ</footer>
     </main>

@@ -251,6 +251,40 @@ button { color: inherit; }
 .bookshelf-plank::before { position: absolute; top: 3px; right: 0; left: 0; height: 1px; background: rgba(246, 216, 172, .28); content: ""; }
 .bookshelf-plank span { position: absolute; top: 7px; left: 21%; width: 3px; height: 3px; border: 1px solid rgba(57, 37, 23, .48); border-radius: 50%; box-shadow: 0 0 1px rgba(255, 228, 187, .4); }
 .bookshelf-hint { margin: 8px 0 0; color: rgba(237, 221, 198, .72); font-size: .86rem; font-style: italic; text-align: center; }
+.book-dialog-backdrop { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; overflow-y: auto; padding: 24px; background: rgba(28, 20, 15, .68); backdrop-filter: blur(5px); animation: book-backdrop-in .24s ease both; }
+.book-dialog { position: relative; width: min(100%, 930px); margin: auto; padding: clamp(18px, 3vw, 32px); border: 1px solid rgba(114, 77, 49, .44); background: linear-gradient(135deg, #f8f0e2, #e7d7bc); box-shadow: 0 28px 90px rgba(15, 10, 7, .45); animation: book-open .62s cubic-bezier(.2, .75, .2, 1) both; transform-origin: center bottom; }
+.book-dialog__close { position: absolute; z-index: 2; top: 9px; right: 12px; width: 38px; height: 38px; border: 1px solid rgba(104, 72, 47, .25); border-radius: 50%; background: rgba(255, 252, 246, .75); color: #68482f; font-size: 1.6rem; line-height: 1; cursor: pointer; }
+.book-dialog__close:hover { background: #fffaf2; }
+.book-dialog__book-open { display: grid; min-height: 490px; grid-template-columns: minmax(220px, .78fr) minmax(0, 1.22fr); perspective: 1500px; box-shadow: 0 12px 26px rgba(63, 43, 27, .17); }
+.book-dialog__cover-page { position: relative; display: grid; min-height: 490px; place-items: center; overflow: hidden; padding: 22px; border: 1px solid rgba(66, 46, 29, .28); background: radial-gradient(ellipse at 35% 28%, rgba(255, 247, 226, .24), transparent 42%), linear-gradient(145deg, #74523b, #3b2b21); transform-origin: right center; animation: cover-open .72s .06s cubic-bezier(.2, .75, .2, 1) both; }
+.book-dialog__cover-page::after { position: absolute; inset: 0 0 0 auto; width: 14px; background: linear-gradient(90deg, transparent, rgba(21, 14, 10, .4)); content: ""; }
+.book-dialog__cover-page img { width: min(100%, 270px); max-height: 410px; object-fit: contain; box-shadow: 8px 12px 24px rgba(12, 8, 5, .35); }
+.book-dialog__cover-fallback { display: grid; width: min(100%, 270px); aspect-ratio: 2 / 3; place-items: center; padding: 24px; border: 1px solid rgba(234, 212, 174, .5); color: #f5e9d4; font-family: Georgia, serif; font-size: 1.8rem; text-align: center; }
+.book-dialog__content-page { min-width: 0; padding: clamp(22px, 4vw, 44px); border: 1px solid rgba(112, 80, 51, .2); background: repeating-linear-gradient(0deg, transparent 0 31px, rgba(150, 117, 80, .055) 32px), #fffaf0; color: #45372b; }
+.book-dialog__eyebrow { margin: 0 0 9px; color: #96714f; font-size: .7rem; letter-spacing: .19em; text-transform: uppercase; }
+.book-dialog__content-page h2 { max-width: 620px; margin: 0; font-family: Georgia, serif; font-size: clamp(1.9rem, 4vw, 3rem); font-weight: 400; line-height: 1.05; }
+.book-dialog__author { margin: 8px 0 0; color: #796b5c; font-family: Georgia, serif; font-size: 1.05rem; }
+.book-dialog__facts { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 15px; }
+.book-dialog__facts span { padding: 5px 8px; border: 1px solid rgba(138, 98, 68, .22); color: #725d49; font-size: .72rem; }
+.book-dialog__content-page h3 { margin: 22px 0 6px; color: #5d4936; font-family: Georgia, serif; font-size: 1.15rem; font-weight: 500; }
+.book-dialog__synopsis { max-height: 96px; overflow: auto; margin: 0; color: #6b5e50; font-size: .91rem; line-height: 1.5; }
+.book-dialog__reading-form { display: grid; grid-template-columns: minmax(120px, .7fr) minmax(140px, 1fr); align-items: end; gap: 12px; margin-top: 19px; }
+.book-dialog__reading-form label { display: grid; gap: 6px; color: #786854; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
+.book-dialog__reading-form input, .book-dialog__reading-form select { width: 100%; min-height: 39px; padding: 8px 10px; border: 1px solid rgba(117, 81, 56, .27); background: rgba(255, 255, 255, .7); color: #45372b; font: inherit; font-size: .9rem; letter-spacing: normal; text-transform: none; }
+.book-dialog__pages-control { display: flex; align-items: center; gap: 8px; color: #8b7d6d; font-size: .82rem; }
+.book-dialog__progress { grid-column: 1 / -1; height: 7px; overflow: hidden; border-radius: 8px; background: #e4d8c5; }
+.book-dialog__progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #8a6244, #bd9a68); transition: width .4s ease; }
+.book-dialog__progress-label { grid-column: 1 / -1; margin: -7px 0 0; color: #8b7d6d; font-size: .75rem; }
+.book-dialog__reading-form > .library-primary-button { grid-column: 1 / -1; justify-self: start; min-height: 38px; padding: 8px 13px; font-size: .72rem; }
+.book-dialog__rating { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 17px; }
+.book-dialog__rating p { margin: 0; color: #786854; font-size: .8rem; letter-spacing: .07em; text-transform: uppercase; }
+.book-dialog__rating div { display: flex; gap: 3px; }
+.book-dialog__rating button { padding: 0 2px; border: 0; background: transparent; color: #b18442; font-size: 1.55rem; cursor: pointer; transition: transform .18s ease, color .18s ease; }
+.book-dialog__rating button:hover:not(:disabled) { transform: scale(1.18); color: #8c5d24; }
+.book-dialog__rating button:disabled { cursor: not-allowed; opacity: .45; }
+.book-dialog__rating small { flex-basis: 100%; color: #958674; font-size: .75rem; }
+.book-dialog__error { margin: 12px 0 0; color: #9c493b; font-size: .83rem; }
+.book-dialog__close:focus-visible, .book-dialog__rating button:focus-visible { outline: 2px solid #8a6244; outline-offset: 3px; }
 .book-result { display: flex; min-width: 0; gap: 16px; padding: 14px; border: 1px solid rgba(117, 81, 56, .16); background: rgba(255, 252, 246, .58); box-shadow: 0 5px 16px rgba(65, 48, 32, .045); }
 .book-result__cover { width: 68px; height: 98px; flex: 0 0 68px; border: 1px solid rgba(75, 54, 37, .2); object-fit: cover; box-shadow: 2px 3px 8px rgba(45, 32, 22, .14); }
 .book-result__cover--placeholder { display: grid; place-items: center; background: linear-gradient(145deg, #867053, #594b3b); color: #f4e9d3; font-size: 2rem; }
@@ -342,8 +376,19 @@ button { color: inherit; }
 @keyframes library-arrive { from { opacity: 0; transform: scale(1.01); } to { opacity: 1; transform: scale(1); } }
 @keyframes card-arrive { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes loading-spin { to { transform: rotate(360deg); } }
+@keyframes book-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes book-open { from { opacity: 0; transform: translateY(24px) scale(.96) rotateX(5deg); } to { opacity: 1; transform: translateY(0) scale(1) rotateX(0); } }
+@keyframes cover-open { from { transform: rotateY(19deg); } to { transform: rotateY(0); } }
 
 @media (max-width: 600px) {
+  .book-dialog-backdrop { align-items: start; padding: 10px; }
+  .book-dialog { margin: auto 0; padding: 10px; }
+  .book-dialog__book-open { min-height: 0; grid-template-columns: 1fr; }
+  .book-dialog__cover-page { min-height: 230px; padding: 14px; transform-origin: center bottom; }
+  .book-dialog__cover-page img, .book-dialog__cover-fallback { width: auto; height: 210px; aspect-ratio: 2 / 3; }
+  .book-dialog__cover-page::after { right: 0; bottom: 0; left: 0; top: auto; width: auto; height: 12px; background: linear-gradient(180deg, transparent, rgba(21, 14, 10, .4)); }
+  .book-dialog__content-page { padding: 22px 17px; }
+  .book-dialog__reading-form { grid-template-columns: 1fr 1fr; }
   .welcome-screen { padding: 40px 28px 70px; }
   .welcome-frame { inset: 13px; }
   .welcome-eyebrow { font-size: .65rem; letter-spacing: .2em; }
@@ -400,6 +445,8 @@ button { color: inherit; }
 }
 
 @media (max-width: 390px) {
+  .book-dialog__reading-form { grid-template-columns: 1fr; }
+  .book-dialog__reading-form > .library-primary-button, .book-dialog__progress, .book-dialog__progress-label { grid-column: 1; }
   .library-header { align-items: flex-start; flex-direction: column; gap: 10px; }
   .library-header__actions { width: 100%; justify-content: space-between; }
   .library-navigation button { padding: 8px 9px; font-size: .74rem; }
