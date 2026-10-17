@@ -168,6 +168,7 @@ button { color: inherit; }
     var(--paper);
   animation: library-arrive .8s ease both;
 }
+.library-landing.has-navigation { padding-left: clamp(260px, 22vw, 330px); }
 .library-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(117, 81, 56, .19); padding-bottom: 16px; }
 .library-header--login { justify-content: center; }
 .library-header--login .library-header__actions { display: none; }
@@ -180,10 +181,13 @@ button { color: inherit; }
 .library-header__actions { display: flex; align-items: center; gap: 22px; }
 .library-text-button { padding: 7px 0; border: 0; background: transparent; color: #8a6244; font-size: .86rem; letter-spacing: .08em; cursor: pointer; }
 .library-text-button:hover { color: #533a29; }
-.library-navigation { display: flex; align-items: center; gap: 7px; padding: 4px; border: 1px solid rgba(117, 81, 56, .16); border-radius: 999px; background: rgba(255, 252, 246, .48); }
-.library-navigation button { padding: 9px 15px; border: 0; border-radius: 999px; background: transparent; color: #756b60; font-size: .9rem; cursor: pointer; transition: color .2s ease, background .2s ease, box-shadow .2s ease; }
-.library-navigation button:hover { color: #523722; }
+.library-navigation { position: fixed; z-index: 20; top: 28px; bottom: 20px; left: 24px; display: flex; width: 218px; flex-direction: column; gap: 7px; padding: 22px 14px; border: 1px solid rgba(117, 81, 56, .16); border-radius: 8px; background: rgba(255, 252, 246, .7); box-shadow: 0 12px 36px rgba(64, 45, 28, .06); backdrop-filter: blur(12px); }
+.library-navigation__label { margin: 5px 10px 13px; color: #9a8065; font-family: Arial, sans-serif; font-size: .65rem; letter-spacing: .16em; text-transform: uppercase; }
+.library-navigation button { position: relative; display: flex; min-height: 47px; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 5px; background: transparent; color: #756b60; font-size: .98rem; text-align: left; cursor: pointer; transition: color .2s ease, background .2s ease, transform .2s ease; }
+.library-navigation button:hover { transform: translateX(2px); background: rgba(138, 98, 68, .08); color: #523722; }
 .library-navigation button.is-active { background: #68482f; color: #fffaf2; box-shadow: 0 3px 8px rgba(65, 45, 29, .16); }
+.library-navigation__icon { display: grid; width: 25px; height: 25px; flex: 0 0 25px; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-family: Arial, sans-serif; font-size: .88rem; line-height: 1; }
+.library-navigation__badge { display: grid; min-width: 21px; height: 21px; margin-left: auto; padding: 0 5px; place-items: center; border-radius: 999px; background: #ad6048; color: #fffaf2; font-family: Arial, sans-serif; font-size: .7rem; font-weight: 700; }
 
 /* Sign-in card */
 .login-layout { display: grid; width: min(100%, 1040px); min-height: 530px; grid-template-columns: .84fr 1.16fr; align-self: center; margin: auto; overflow: hidden; border: 1px solid rgba(117, 81, 56, .2); border-radius: 5px; background: rgba(255, 252, 246, .74); box-shadow: 0 24px 65px rgba(64, 45, 28, .11), 0 3px 9px rgba(64, 45, 28, .045); }
@@ -490,9 +494,21 @@ button { color: inherit; }
 @keyframes envelope-flap-open { from { transform: translateX(-50%) rotate(45deg); } to { transform: translateX(-50%) rotate(225deg); } }
 @keyframes letter-rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
 
+@media (min-width: 601px) and (max-width: 800px) {
+  .library-landing.has-navigation { padding: 20px 28px 106px; }
+  .library-navigation { top: auto; right: 18px; bottom: 14px; left: 18px; display: grid; width: auto; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 8px; border-radius: 12px; background: rgba(255, 252, 246, .94); box-shadow: 0 8px 28px rgba(48, 34, 22, .18); }
+  .library-navigation__label { display: none; }
+  .library-navigation button { justify-content: center; }
+}
+
 @media (max-width: 600px) {
-  .library-navigation { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
-  .library-navigation::-webkit-scrollbar { display: none; }
+  .library-landing, .library-landing.has-navigation { padding: 20px 18px calc(104px + env(safe-area-inset-bottom)); }
+  .library-navigation { top: auto; right: 10px; bottom: max(10px, env(safe-area-inset-bottom)); left: 10px; display: grid; width: auto; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; padding: 7px 5px; border-radius: 13px; background: rgba(255, 252, 246, .94); box-shadow: 0 8px 28px rgba(48, 34, 22, .2); }
+  .library-navigation__label { display: none; }
+  .library-navigation button { min-width: 0; min-height: 57px; flex-direction: column; justify-content: center; gap: 3px; padding: 5px 2px; border-radius: 8px; font-size: .68rem; line-height: 1.05; text-align: center; white-space: nowrap; }
+  .library-navigation button:hover { transform: none; }
+  .library-navigation__icon { width: 22px; height: 22px; flex-basis: 22px; font-size: .78rem; }
+  .library-navigation__badge { position: absolute; top: 1px; right: 3px; min-width: 17px; height: 17px; padding: 0 4px; font-size: .62rem; }
   .shared-setup-grid, .shared-book-grid { grid-template-columns: 1fr; }
   .shared-letter-teaser { grid-template-columns: 43px minmax(0, 1fr); gap: 9px; padding: 10px; }
   .shared-letter-teaser em { grid-column: 2; }
@@ -530,8 +546,6 @@ button { color: inherit; }
   .library-landing { padding: 20px 22px 16px; }
   .library-header__label { font-size: .68rem; letter-spacing: .12em; }
   .library-header__actions { gap: 12px; }
-  .library-navigation { gap: 2px; padding: 3px; }
-  .library-navigation button { padding: 8px 10px; font-size: .78rem; }
   .library-welcome { padding-top: 50px; }
   .library-description { font-size: 1.08rem; }
   .empty-shelf { margin-top: 44px; }
@@ -577,7 +591,7 @@ button { color: inherit; }
   .book-dialog__reading-form > .library-primary-button, .book-dialog__progress, .book-dialog__progress-label { grid-column: 1; }
   .library-header { align-items: flex-start; flex-direction: column; gap: 10px; }
   .library-header__actions { width: 100%; justify-content: space-between; }
-  .library-navigation button { padding: 8px 9px; font-size: .74rem; }
+  .library-navigation button { font-size: .62rem; }
   .library-filters { grid-template-columns: 1fr; }
   .filter-search, .filter-actions { grid-column: auto; }
   .book-result { gap: 12px; padding: 11px; }

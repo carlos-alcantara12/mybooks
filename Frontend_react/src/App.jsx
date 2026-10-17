@@ -508,7 +508,7 @@ async function fetchAllPages(path, accessToken, onToken) {
   }
 }
 
-function SharedLibrariesView({ accessToken, onToken, username }) {
+function SharedLibrariesView({ accessToken, onToken, username, onUnreadChange }) {
   const [activeUsername, setActiveUsername] = useState(username || "");
   const [libraries, setLibraries] = useState([]);
   const [invitations, setInvitations] = useState([]);
@@ -555,6 +555,7 @@ function SharedLibrariesView({ accessToken, onToken, username }) {
   const activeRequest = letter?.kind === "remove" ? requests.find((item) => item.id === letter.id) : null;
   const unread = invitations.filter((item) => item.recipient === activeUsername && item.status === "PENDING" && !item.opened_at).length
     + requests.filter((item) => item.recipient === activeUsername && item.status === "PENDING" && !item.opened_at).length;
+  useEffect(() => { onUnreadChange(unread); }, [unread, onUnreadChange]);
   const reload = () => setRefresh((value) => value + 1);
 
   async function act(path, options, message) {
@@ -845,6 +846,7 @@ function CatalogExplorer({ accessToken, onToken }) {
 function LibraryLanding({ onReturn }) {
   const [accessToken, setAccessToken] = useState(() => window.localStorage.getItem("mybooks:access-token") || "");
   const [activeView, setActiveView] = useState("library");
+  const [navUnread, setNavUnread] = useState(0);
   const [username, setUsername] = useState(() => window.localStorage.getItem("mybooks:username") || "");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -938,6 +940,7 @@ function LibraryLanding({ onReturn }) {
     window.localStorage.removeItem("mybooks:username");
     setAccessToken("");
     setActiveView("library");
+    setNavUnread(0);
     setEntries([]);
   }
 
@@ -950,21 +953,22 @@ function LibraryLanding({ onReturn }) {
   }
 
   return (
-    <main className="library-landing">
+    <main className={`library-landing${accessToken ? " has-navigation" : ""}`}>
       <header className={`library-header${accessToken ? "" : " library-header--login"}`}>
         <a className="library-wordmark" href="#inicio" onClick={(event) => { event.preventDefault(); onReturn(); }}>
           MyBooks<span aria-hidden="true">.</span>
         </a>
         <div className="library-header__actions">
-          {accessToken && <nav className="library-navigation" aria-label="Navegação principal">
-            <button className={activeView === "library" ? "is-active" : ""} type="button" onClick={() => setActiveView("library")}>Minha biblioteca</button>
-            <button className={activeView === "explore" ? "is-active" : ""} type="button" onClick={() => setActiveView("explore")}>Explorar obras</button>
-            <button className={activeView === "progress" ? "is-active" : ""} type="button" onClick={() => setActiveView("progress")}>Progresso</button>
-            <button className={activeView === "shared" ? "is-active" : ""} type="button" onClick={() => setActiveView("shared")}>Compartilhada</button>
-          </nav>}
           {accessToken && <button className="library-text-button" type="button" onClick={signOut}>sair</button>}
         </div>
       </header>
+      {accessToken && <nav className="library-navigation" aria-label="Navegação principal">
+        <p className="library-navigation__label">Seu espaço</p>
+        <button aria-current={activeView === "library" ? "page" : undefined} className={activeView === "library" ? "is-active" : ""} type="button" onClick={() => setActiveView("library")}><span className="library-navigation__icon" aria-hidden="true">▤</span><span>Minha biblioteca</span></button>
+        <button aria-current={activeView === "explore" ? "page" : undefined} className={activeView === "explore" ? "is-active" : ""} type="button" onClick={() => setActiveView("explore")}><span className="library-navigation__icon" aria-hidden="true">⌕</span><span>Explorar obras</span></button>
+        <button aria-current={activeView === "progress" ? "page" : undefined} className={activeView === "progress" ? "is-active" : ""} type="button" onClick={() => setActiveView("progress")}><span className="library-navigation__icon" aria-hidden="true">↗</span><span>Progresso</span></button>
+        <button aria-current={activeView === "shared" ? "page" : undefined} className={activeView === "shared" ? "is-active" : ""} type="button" onClick={() => setActiveView("shared")}><span className="library-navigation__icon" aria-hidden="true">✉</span><span>Compartilhada</span>{navUnread > 0 && <span className="library-navigation__badge" aria-label={`${navUnread} cartas não lidas`}>{navUnread > 9 ? "9+" : navUnread}</span>}</button>
+      </nav>}
       {!accessToken ? (
         <div className="login-layout">
           <aside className="login-story" aria-label="Uma mensagem sobre leitura">
@@ -1028,7 +1032,7 @@ function LibraryLanding({ onReturn }) {
       ) : activeView === "progress" ? (
         <ReadingProgressView accessToken={accessToken} onToken={setAccessToken} />
       ) : activeView === "shared" ? (
-        <SharedLibrariesView accessToken={accessToken} onToken={setAccessToken} username={username || window.localStorage.getItem("mybooks:username") || ""} />
+        <SharedLibrariesView accessToken={accessToken} onToken={setAccessToken} username={username || window.localStorage.getItem("mybooks:username") || ""} onUnreadChange={setNavUnread} />
       ) : (
         <section className="personal-library" aria-labelledby="library-title">
           <div className="personal-library__heading">
