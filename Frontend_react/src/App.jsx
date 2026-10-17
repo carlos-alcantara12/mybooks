@@ -124,14 +124,220 @@ async function getLibraryPage(path, token, onToken, signal) {
 
 function statusLabel(status) {
   return {
-    WANT_TO_READ: "Quero ler",
-    READING: "Lendo",
-    READ: "Lido",
+    WANT_TO_READ: "Desejos",
+    READING: "Não lidos",
+    READ: "Já lidos",
   }[status] || status;
+}
+
+async function catalogRequest(path, token, onToken, options = {}) {
+  const send = (activeToken) => fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${activeToken}`,
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+    },
+  });
+  let response = await send(token);
+  if (response.status === 401) {
+    const refresh = window.localStorage.getItem("mybooks:refresh-token");
+    if (!refresh) throw new Error("Sua sessão expirou. Entre novamente.");
+    const refreshResponse = await fetch(`${API_BASE_URL}/auth/token/refresh/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh }),
+    });
+    if (!refreshResponse.ok) throw new Error("Sua sessão expirou. Entre novamente.");
+    const refreshed = await refreshResponse.json();
+    window.localStorage.setItem("mybooks:access-token", refreshed.access);
+    onToken(refreshed.access);
+    response = await send(refreshed.access);
+  }
+  const data = await response.json().catch(() => null);
+  if (!data) throw new Error("O servidor respondeu em um formato inesperado. Confira se o backend está funcionando.");
+  if (!response.ok) {
+    const detail = data.detail || Object.values(data).flat()[0];
+    throw new Error(detail || "Não foi possível concluir esta ação.");
+  }
+  return data;
+}
+
+function CatalogExplorer({ accessToken, onToken }) {
+  const [search, setSearch] = useState("");
+  const [genre, setGenre] = useState("");
+  const [submittedSearch, setSubmittedSearch] = useState("");
+  const [submittedGenre, setSubmittedGenre] = useState("");
+  const [results, setResults] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalBooks, setTotalBooks] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [categories, setCategories] = useState({});
+  const [addingBook, setAddingBook] = useState(null);
+  const [addedBooks, setAddedBooks] = useState({});
+  const [feedback, setFeedback] = useState({});
+
+  useEffect(() => {
+    if (!submittedSearch && !submittedGenre) return undefined;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ page: String(page) });
+    if (submittedSearch) params.set("search", submittedSearch);
+    if (submittedGenre) params.set("genre", submittedGenre);
+    setLoading(true);
+    setError("");
+    getLibraryPage(`/books/?${params.toString()}`, accessToken, onToken, controller.signal)
+      .then((data) => {
+        setResults(data.results || []);
+        setTotalBooks(data.count || 0);
+        setHasNext(Boolean(data.next));
+        setHasPrevious(Boolean(data.previous));
+      })
+      .catch((requestError) => {
+        if (requestError.name !== "AbortError") setError(requestError.message);
+      })
+      .finally(() => setLoading(false));
+    return () => controller.abort();
+  }, [accessToken, onToken, page, submittedSearch, submittedGenre]);
+
+  function submitSearch(event) {
+    event.preventDefault();
+    const nextSearch = search.trim();
+    const nextGenre = genre.trim();
+    if (!nextSearch && !nextGenre) {
+      setError("Digite o título ou autor de uma obra, ou informe um gênero.");
+      setResults([]);
+      setTotalBooks(0);
+      return;
+    }
+    setPage(1);
+    setSubmittedSearch(nextSearch);
+    setSubmittedGenre(nextGenre);
+  }
+
+  async function addBook(book) {
+    const category = categories[book.id] || "WANT_TO_READ";
+    if (category === "READ" && !book.total_pages) {
+      setFeedback((current) => ({ ...current, [book.id]: "Informe o total de páginas antes de marcar esta obra como lida." }));
+      return;
+    }
+    setAddingBook(book.id);
+    setFeedback((current) => ({ ...current, [book.id]: "" }));
+    try {
+      await catalogRequest("/library/", accessToken, onToken, {
+        method: "POST",
+        body: JSON.stringify({
+          book_id: book.id,
+          status: category,
+          ...(category === "READ" ? { pages_read: book.total_pages } : {}),
+        }),
+      });
+      setAddedBooks((current) => ({ ...current, [book.id]: true }));
+      setFeedback((current) => ({ ...current, [book.id]: "Obra adicionada à sua biblioteca." }));
+    } catch (requestError) {
+      const message = String(requestError.message);
+      if (/já est[aá] na sua biblioteca/i.test(message)) {
+        setAddedBooks((current) => ({ ...current, [book.id]: true }));
+        setFeedback((current) => ({ ...current, [book.id]: "Esta obra já está na sua biblioteca." }));
+      } else {
+        setFeedback((current) => ({ ...current, [book.id]: message }));
+      }
+    } finally {
+      setAddingBook(null);
+    }
+  }
+
+  return (
+    <section className="explore-view" aria-labelledby="explore-title">
+      <div className="explore-heading">
+        <div>
+          <p className="library-kicker">amplie sua coleção</p>
+          <h1 id="explore-title">Encontre sua próxima leitura.</h1>
+          <p className="explore-intro">Busque por título, autor ou gênero e descubra novas histórias para sua estante.</p>
+        </div>
+        {(submittedSearch || submittedGenre) && <p className="explore-count">{totalBooks} {totalBooks === 1 ? "obra encontrada" : "obras encontradas"}</p>}
+      </div>
+
+      <form className="explore-search" onSubmit={submitSearch}>
+        <label className="explore-search__query">
+          <span>Obra ou autor</span>
+          <span className="search-input-wrap">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 5 5" /></svg>
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ex.: O Pequeno Príncipe" />
+          </span>
+        </label>
+        <label className="explore-search__genre">
+          <span>Gênero</span>
+          <input value={genre} onChange={(event) => setGenre(event.target.value)} placeholder="Ex.: fantasia" />
+        </label>
+        <button className="library-primary-button" type="submit" disabled={loading}>{loading ? "buscando…" : "buscar obras"}</button>
+      </form>
+
+      {error && <p className="library-error explore-error" role="alert">{error}</p>}
+      {loading ? (
+        <div className="explore-state" role="status"><span className="loading-mark" aria-hidden="true" />Consultando o catálogo…</div>
+      ) : results.length ? (
+        <>
+          <div className="catalog-results" aria-live="polite">
+            {results.map((book, index) => (
+              <article className="catalog-card" key={book.id} style={{ "--card-index": index }}>
+                <div className="catalog-card__cover-wrap">
+                  {book.cover_url && <img className="catalog-card__cover" src={book.cover_url} alt={`Capa de ${book.title}`} loading="lazy" onError={(event) => { event.currentTarget.hidden = true; event.currentTarget.nextElementSibling.hidden = false; }} />}
+                  <div className="catalog-card__cover-fallback" hidden={Boolean(book.cover_url)} aria-hidden="true">
+                    <span>MYBOOKS</span><strong>{book.title}</strong><i>{book.author}</i>
+                  </div>
+                  <span className="catalog-card__cover-shadow" aria-hidden="true" />
+                </div>
+                <div className="catalog-card__body">
+                  <p className="catalog-card__eyebrow">{book.genre || "obra do catálogo"}</p>
+                  <h2>{book.title}</h2>
+                  <p className="catalog-card__author">{book.author}</p>
+                  <div className="catalog-card__facts">
+                    {book.total_pages ? <span>{book.total_pages} páginas</span> : <span>páginas não informadas</span>}
+                    {book.publication_date && <span>{book.publication_date.slice(0, 4)}</span>}
+                  </div>
+                  <p className="catalog-card__synopsis">{book.synopsis || "Ainda não há um resumo cadastrado para esta obra."}</p>
+                  <div className="catalog-card__actions">
+                    <label>
+                      <span>Adicionar como</span>
+                      <select value={categories[book.id] || "WANT_TO_READ"} disabled={Boolean(addedBooks[book.id])} onChange={(event) => setCategories((current) => ({ ...current, [book.id]: event.target.value }))}>
+                        <option value="WANT_TO_READ">Desejos</option>
+                        <option value="READING">Não lidos</option>
+                        <option value="READ">Já lidos</option>
+                      </select>
+                    </label>
+                    <button className={`catalog-add-button${addedBooks[book.id] ? " is-added" : ""}`} type="button" disabled={Boolean(addingBook) || Boolean(addedBooks[book.id])} onClick={() => addBook(book)}>
+                      {addingBook === book.id ? "adicionando…" : addedBooks[book.id] ? "adicionado ✓" : "+ adicionar"}
+                    </button>
+                  </div>
+                  {feedback[book.id] && <p className={`catalog-feedback${addedBooks[book.id] ? " is-success" : ""}`} role="status">{feedback[book.id]}</p>}
+                </div>
+              </article>
+            ))}
+          </div>
+          {(hasNext || hasPrevious) && (
+            <nav className="pagination-controls" aria-label="Páginas do catálogo">
+              <button type="button" disabled={!hasPrevious || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}>anterior</button>
+              <span>página {page}</span>
+              <button type="button" disabled={!hasNext || loading} onClick={() => setPage((value) => value + 1)}>próxima</button>
+            </nav>
+          )}
+        </>
+      ) : (
+        <div className="explore-state explore-state--empty" aria-live="polite">
+          <span className="explore-state__ornament" aria-hidden="true">✧</span>
+          <h2>{submittedSearch || submittedGenre ? "Nenhuma obra encontrada" : "Toda grande leitura começa com uma busca."}</h2>
+          <p>{submittedSearch || submittedGenre ? "Experimente outro título, autor ou gênero." : "Pesquise no catálogo e encontre uma história para levar à sua estante."}</p>
+        </div>
+      )}
+    </section>
+  );
 }
 
 function LibraryLanding({ onReturn }) {
   const [accessToken, setAccessToken] = useState(() => window.localStorage.getItem("mybooks:access-token") || "");
+  const [activeView, setActiveView] = useState("library");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -220,6 +426,7 @@ function LibraryLanding({ onReturn }) {
     window.localStorage.removeItem("mybooks:access-token");
     window.localStorage.removeItem("mybooks:refresh-token");
     setAccessToken("");
+    setActiveView("library");
     setEntries([]);
   }
 
@@ -238,7 +445,10 @@ function LibraryLanding({ onReturn }) {
           MyBooks<span aria-hidden="true">.</span>
         </a>
         <div className="library-header__actions">
-          <span className="library-header__label">sua biblioteca</span>
+          {accessToken && <nav className="library-navigation" aria-label="Navegação principal">
+            <button className={activeView === "library" ? "is-active" : ""} type="button" onClick={() => setActiveView("library")}>Minha biblioteca</button>
+            <button className={activeView === "explore" ? "is-active" : ""} type="button" onClick={() => setActiveView("explore")}>Explorar obras</button>
+          </nav>}
           {accessToken && <button className="library-text-button" type="button" onClick={signOut}>sair</button>}
         </div>
       </header>
@@ -300,6 +510,8 @@ function LibraryLanding({ onReturn }) {
             </p>
           </section>
         </div>
+      ) : activeView === "explore" ? (
+        <CatalogExplorer accessToken={accessToken} onToken={setAccessToken} />
       ) : (
         <section className="personal-library" aria-labelledby="library-title">
           <div className="personal-library__heading">
@@ -323,9 +535,9 @@ function LibraryLanding({ onReturn }) {
               <span>Categoria</span>
               <select value={status} onChange={(event) => setStatus(event.target.value)}>
                 <option value="">Todas</option>
-                <option value="WANT_TO_READ">Quero ler</option>
-                <option value="READING">Lendo</option>
-                <option value="READ">Lido</option>
+                <option value="WANT_TO_READ">Desejos</option>
+                <option value="READING">Não lidos</option>
+                <option value="READ">Já lidos</option>
               </select>
             </label>
             <div className="filter-actions">
