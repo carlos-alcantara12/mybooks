@@ -11,6 +11,10 @@ Authorization: Bearer <access>
 Content-Type: application/json
 ```
 
+### Consultar a conta autenticada
+
+`GET /api/auth/me/` retorna o `username` da conta autenticada. A interface usa esse dado para identificar convites e pedidos recebidos.
+
 ### Criar conta
 
 `POST /api/auth/register/`
