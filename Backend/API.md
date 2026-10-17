@@ -80,12 +80,14 @@ Exemplo de criação:
   "title": "Duna",
   "author": "Frank Herbert",
   "synopsis": "Uma aventura no planeta Arrakis.",
+  "genre": "Ficção científica",
+  "total_pages": 412,
   "cover_url": "https://example.com/duna.jpg",
   "publication_date": "1965-08-01"
 }
 ```
 
-`title` e `author` são obrigatórios. `synopsis`, `cover_url` e `publication_date` são opcionais. A data usa `AAAA-MM-DD`. O catálogo rejeita livros com título e autor iguais, sem diferenciar maiúsculas de minúsculas.
+`title` e `author` são obrigatórios. `synopsis`, `genre`, `total_pages`, `cover_url` e `publication_date` são opcionais. `total_pages`, quando informado, deve ser maior que zero. A data usa `AAAA-MM-DD`. O catálogo rejeita livros com título e autor iguais, sem diferenciar maiúsculas de minúsculas.
 
 A resposta de livro inclui `id`, esses campos e `created_at` em formato ISO 8601.
 
@@ -105,9 +107,15 @@ Exemplo de criação:
 {"book_id": 12, "status": "WANT_TO_READ"}
 ```
 
-`book_id` deve referenciar um livro existente. `status` aceita `WANT_TO_READ` (Quero ler), `READING` (Lendo) ou `READ` (Lido). O mesmo livro não pode aparecer duas vezes na biblioteca da mesma pessoa. Um livro com avaliação não pode ser movido para outra categoria; excluir o item também exclui sua avaliação, mas mantém o livro no catálogo.
+`book_id` deve referenciar um livro existente. `status` aceita `WANT_TO_READ` (Quero ler), `READING` (Lendo) ou `READ` (Lido). `pages_read` é o número de páginas já lidas pelo usuário e começa em `0`; ele não pode ultrapassar `total_pages` quando o total estiver cadastrado. Para usar o status `READ`, o livro precisa ter total de páginas cadastrado e `pages_read` deve ser igual a esse total. O mesmo livro não pode aparecer duas vezes na biblioteca da mesma pessoa. Um livro com avaliação não pode ser movido para outra categoria; excluir o item também exclui sua avaliação, mas mantém o livro no catálogo.
 
-A resposta inclui `id`, `status`, `added_at` e o objeto `book` do catálogo.
+Exemplo de atualização do progresso:
+
+```json
+{"status": "READING", "pages_read": 120}
+```
+
+A resposta inclui `id`, `status`, `pages_read`, `added_at` e o objeto `book` do catálogo.
 
 ### Avaliações
 

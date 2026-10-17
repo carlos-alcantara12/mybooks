@@ -4,7 +4,7 @@ O **MyBooks** é uma aplicação web para organizar livros e acompanhar a vida d
 
 Além de ser útil no dia a dia, o projeto serve como exemplo prático de desenvolvimento de software: reúne modelagem de dados, API REST, autenticação, regras de negócio, validação de informações e uma base para a futura construção de uma interface web.
 
-> **Estado do projeto nesta versão:** o backend Django e sua API estão presentes no pacote. A API da biblioteca já oferece as categorias `WANT_TO_READ`, `READING` e `READ` (Quero ler, Lendo e Lido). A pasta `Frontend_react` está vazia nesta cópia. Bibliotecas compartilhadas, progresso por páginas, timer, gráficos e a experiência visual descrita abaixo ainda precisam ser implementados.
+> **Estado do projeto nesta versão:** o backend Django e sua API estão presentes no pacote. A API já oferece as categorias `WANT_TO_READ`, `READING` e `READ`, além de gênero, total de páginas e progresso individual. A pasta `Frontend_react` está vazia nesta cópia. Bibliotecas compartilhadas, timer, gráficos e a experiência visual descrita abaixo ainda precisam ser implementados.
 
 ---
 
@@ -53,9 +53,9 @@ Cada obra pode conter:
 - autor;
 - sinopse opcional;
 - URL da capa opcional;
-- data de publicação opcional.
-- gênero;
-- número total de páginas.
+- data de publicação opcional;
+- gênero opcional;
+- total de páginas opcional até o dado ser conhecido.
 
 O catálogo é compartilhado entre usuários. O backend valida possíveis duplicidades considerando título e autor sem diferenciar maiúsculas e minúsculas.
 
@@ -67,7 +67,7 @@ Cada usuário poderá incluir uma obra em sua biblioteca e classificá-la como:
 - **Lendo** — livro em andamento, com progresso individual em páginas;
 - **Lido** — livro concluído.
 
-Para marcar um livro como **Lido**, as páginas lidas devem ser iguais ao total de páginas cadastrado. O catálogo é compartilhado, mas status, progresso, avaliações, comentários e sessões de leitura pertencem a cada usuário.
+O usuário registra as páginas lidas em seu próprio item da biblioteca. Esse número não pode ultrapassar o total cadastrado. Para marcar um livro como **Lido**, o total precisa estar informado e as páginas lidas devem ser iguais a ele. O catálogo é compartilhado, mas status, progresso, avaliações, comentários e sessões de leitura pertencem a cada usuário.
 
 ### Biblioteca compartilhada e correio interno
 
@@ -123,7 +123,7 @@ O backend atual aplica regras importantes para manter a consistência:
 - A edição e a remoção de livros do catálogo e a manutenção das tendências são restritas a administradores.
 - A remoção de uma entrada da biblioteca também remove a avaliação associada àquela obra para aquele usuário, sem apagar o livro do catálogo compartilhado.
 
-O status **Lido** já pode ser usado na biblioteca pessoal. A validação para exigir que páginas lidas sejam iguais ao total cadastrado depende da implementação do progresso por páginas.
+O backend valida que o progresso não ultrapasse o total cadastrado e exige igualdade entre páginas lidas e total para marcar um livro como **Lido**. O catálogo também impede alterações no total que invalidem progresso registrado.
 
 **Observação de segurança:** a configuração incluída é apropriada para desenvolvimento local, não para publicação direta em produção. Antes de disponibilizar o sistema publicamente, configure uma chave secreta forte por variável de ambiente, desative o modo de depuração, defina os hosts permitidos, escolha e configure um banco de dados de produção e revise HTTPS, CORS/CSRF conforme a arquitetura, backups, logs e políticas de acesso.
 
@@ -251,7 +251,7 @@ A configuração padrão é voltada ao ambiente local. Não publique o sistema c
 
 Os exemplos abaixo ilustram o formato das requisições. Execute primeiro o servidor e substitua os valores ilustrativos pelos IDs e tokens retornados pela sua instalação.
 
-> A API da biblioteca aceita `WANT_TO_READ`, `READING` e `READ`, correspondentes a **Quero ler**, **Lendo** e **Lido**. A validação da conclusão pelo total de páginas ainda depende da implementação do progresso.
+> A API da biblioteca aceita `WANT_TO_READ`, `READING` e `READ`, correspondentes a **Quero ler**, **Lendo** e **Lido**. O catálogo aceita `genre` e `total_pages`, e a biblioteca pessoal aceita `pages_read`.
 
 ### Criar uma conta
 
@@ -310,7 +310,7 @@ Content-Type: application/json
 }
 ```
 
-Para iniciar a leitura, use `"status": "READING"`. Para marcar como concluído, use `"status": "READ"`.
+Para atualizar o progresso, envie `pages_read`. Para iniciar a leitura, use `"status": "READING"`; para marcar como concluído, envie `"status": "READ"` e `"pages_read"` igual ao `total_pages` do livro.
 
 ### Avaliar um livro lido
 
@@ -376,7 +376,7 @@ A área de tendências cria uma base para discutir curadoria, descoberta de cont
 
 Possíveis melhorias futuras, a serem priorizadas conforme o objetivo do projeto:
 
-1. **Dados e API de leitura:** adicionar gêneros e total de páginas ao catálogo; registrar progresso individual; validar conclusão e avaliações.
+1. **Dados e API de leitura:** integrar o progresso por páginas à interface e validar os fluxos de conclusão e avaliação.
 2. **Biblioteca compartilhada:** implementar participantes, convites em correio interno, notificações e pedidos de remoção de livros.
 3. **Progresso e timer:** registrar sessões, metas de tempo e históricos necessários aos resumos diários, semanais e mensais.
 4. **Frontend React:** implementar as categorias **Quero ler**, **Lendo** e **Lido**, gráficos e telas da biblioteca.
@@ -388,7 +388,7 @@ Possíveis melhorias futuras, a serem priorizadas conforme o objetivo do projeto
 
 ## 12. Escopo atual e próximos passos
 
-Esta cópia contém a base do backend: modelos, serializadores, views, rotas, configuração de autenticação JWT e integração com o Django Admin. A API pessoal aceita os status **Quero ler**, **Lendo** e **Lido**. O diretório `Frontend_react` está vazio. A biblioteca compartilhada, o correio interno, o progresso por páginas, timer, gráficos e a interface animada são requisitos definidos para as próximas etapas, não recursos já disponíveis.
+Esta cópia contém a base do backend: modelos, serializadores, views, rotas, configuração de autenticação JWT e integração com o Django Admin. A API pessoal aceita os status **Quero ler**, **Lendo** e **Lido**, registra páginas lidas por usuário e inclui gênero e total de páginas no catálogo. O diretório `Frontend_react` está vazio. A biblioteca compartilhada, o correio interno, timer, gráficos e a interface animada são requisitos definidos para as próximas etapas, não recursos já disponíveis.
 
 Uma sequência de trabalho recomendada é:
 

@@ -14,7 +14,7 @@ class BusinessRuleModelTests(TestCase):
             email="model-reader@example.com",
             password="Safe-password-123",
         )
-        self.book = Book.objects.create(title="Foundation", author="Isaac Asimov")
+        self.book = Book.objects.create(title="Foundation", author="Isaac Asimov", total_pages=100)
 
     def test_model_save_rejects_case_insensitive_catalog_duplicate(self):
         duplicate = Book(title="FOUNDATION", author="ISAAC ASIMOV")
@@ -32,6 +32,7 @@ class BusinessRuleModelTests(TestCase):
             user=self.user,
             book=self.book,
             status=LibraryEntry.Status.READ,
+            pages_read=100,
         )
 
         with self.assertRaises(ValidationError):

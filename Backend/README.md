@@ -33,8 +33,8 @@ Referência detalhada de endpoints, payloads, permissões e erros: [API.md](API.
 - `POST /api/auth/token/`: recebe usuário e senha e retorna tokens JWT.
 - `POST /api/auth/token/refresh/`: renova o token de acesso.
 - Envie o token em `Authorization: Bearer <token>`.
-- `/api/books/`: catálogo compartilhado; consulta e cadastro para usuários autenticados, edição e remoção para administradores.
-- `/api/library/`: biblioteca do usuário autenticado; recebe `book_id` e status `WANT_TO_READ`, `READING` ou `READ` (Quero ler, Lendo ou Lido).
+- `/api/books/`: catálogo compartilhado com gênero e total de páginas opcionais; consulta e cadastro para usuários autenticados, edição e remoção para administradores.
+- `/api/library/`: biblioteca do usuário autenticado; recebe `book_id`, status `WANT_TO_READ`, `READING` ou `READ` e `pages_read` individual.
 - `/api/reviews/`: avaliações do usuário autenticado; recebe `book_id`, nota de 1 a 5 e comentário opcional.
 - `/api/trending/`: consulta autenticada; alterações somente por administradores.
 - `/admin/`: administração Django.

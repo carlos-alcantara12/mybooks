@@ -88,7 +88,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class BookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
-        fields = ("id", "title", "author", "synopsis", "cover_url", "publication_date", "created_at")
+        fields = (
+            "id",
+            "title",
+            "author",
+            "synopsis",
+            "genre",
+            "total_pages",
+            "cover_url",
+            "publication_date",
+            "created_at",
+        )
         read_only_fields = ("id", "created_at")
 
     def validate(self, attrs):
@@ -113,7 +123,7 @@ class LibraryEntrySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LibraryEntry
-        fields = ("id", "book", "book_id", "status", "added_at")
+        fields = ("id", "book", "book_id", "status", "pages_read", "added_at")
         read_only_fields = ("id", "added_at")
 
     def validate(self, attrs):

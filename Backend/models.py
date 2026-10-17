@@ -24,6 +24,13 @@ class Book(models.Model):
     title = models.CharField("título", max_length=255)
     author = models.CharField("autor", max_length=255)
     synopsis = models.TextField("sinopse", blank=True)
+    genre = models.CharField("gênero", max_length=100, blank=True)
+    total_pages = models.PositiveIntegerField(
+        "total de páginas",
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1)],
+    )
     cover_url = models.URLField("URL da capa", blank=True)
     publication_date = models.DateField("data de publicação", null=True, blank=True)
     created_at = models.DateTimeField("cadastrado em", auto_now_add=True)
@@ -43,6 +50,18 @@ class Book(models.Model):
                 duplicate = duplicate.exclude(pk=self.pk)
             if duplicate.exists():
                 raise ValidationError({"title": "Este livro já existe no catálogo."})
+        if self.pk:
+            previous_total = Book.objects.filter(pk=self.pk).values_list("total_pages", flat=True).first()
+            if previous_total != self.total_pages:
+                entries = LibraryEntry.objects.filter(book_id=self.pk, pages_read__gt=0)
+                if self.total_pages is None:
+                    if entries.exists():
+                        raise ValidationError({"total_pages": "Não é possível remover o total de páginas após o início do progresso de leitura."})
+                else:
+                    if entries.filter(pages_read__gt=self.total_pages).exists():
+                        raise ValidationError({"total_pages": "O total de páginas não pode ser menor que o progresso registrado."})
+                    if entries.filter(status=LibraryEntry.Status.READ).exclude(pages_read=self.total_pages).exists():
+                        raise ValidationError({"total_pages": "O total deve corresponder às páginas registradas nos livros já concluídos."})
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -71,6 +90,7 @@ class LibraryEntry(models.Model):
         verbose_name="livro",
     )
     status = models.CharField("status", max_length=12, choices=Status.choices)
+    pages_read = models.PositiveIntegerField("páginas lidas", default=0)
     added_at = models.DateTimeField("adicionado em", default=timezone.now, editable=False)
 
     def clean(self):
@@ -88,6 +108,15 @@ class LibraryEntry(models.Model):
             and Review.objects.filter(user_id=self.user_id, book_id=self.book_id).exists()
         ):
             raise ValidationError({"status": "Remova a avaliação antes de mover o livro para outra categoria."})
+        if self.book_id:
+            total_pages = self.book.total_pages
+            if total_pages is not None and self.pages_read > total_pages:
+                raise ValidationError({"pages_read": "As páginas lidas não podem ultrapassar o total do livro."})
+            if self.status == self.Status.READ:
+                if total_pages is None:
+                    raise ValidationError({"status": "Cadastre o total de páginas antes de marcar o livro como lido."})
+                if self.pages_read != total_pages:
+                    raise ValidationError({"status": "Para marcar como lido, as páginas lidas devem ser iguais ao total."})
 
     def save(self, *args, **kwargs):
         self.full_clean()

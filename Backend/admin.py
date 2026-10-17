@@ -8,12 +8,12 @@ class MyBooksUserAdmin(UserAdmin):
 
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
-    list_display = ("title", "author", "publication_date")
-    search_fields = ("title", "author")
+    list_display = ("title", "author", "genre", "total_pages", "publication_date")
+    search_fields = ("title", "author", "genre")
 
 @admin.register(LibraryEntry)
 class LibraryEntryAdmin(admin.ModelAdmin):
-    list_display = ("user", "book", "status", "added_at")
+    list_display = ("user", "book", "status", "pages_read", "added_at")
     list_filter = ("status",)
     search_fields = ("user__username", "book__title")
 

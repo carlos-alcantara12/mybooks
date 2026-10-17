@@ -20,7 +20,7 @@ class MyBooksAPITests(APITestCase):
             email="other@example.com",
             password="Safe-password-456",
         )
-        self.book = Book.objects.create(title="Dune", author="Frank Herbert")
+        self.book = Book.objects.create(title="Dune", author="Frank Herbert", total_pages=412)
         self.client.force_authenticate(user=self.user)
 
     def test_library_and_reviews_require_authentication(self):
@@ -34,6 +34,7 @@ class MyBooksAPITests(APITestCase):
             user=self.user,
             book=self.book,
             status=LibraryEntry.Status.READ,
+            pages_read=412,
         )
 
         self.client.force_authenticate(user=self.other_user)
@@ -59,7 +60,12 @@ class MyBooksAPITests(APITestCase):
         not_read_response = self.client.post(url, payload, format="json")
         self.assertEqual(not_read_response.status_code, status.HTTP_400_BAD_REQUEST)
 
-        LibraryEntry.objects.create(user=self.user, book=self.book, status=LibraryEntry.Status.READ)
+        LibraryEntry.objects.create(
+            user=self.user,
+            book=self.book,
+            status=LibraryEntry.Status.READ,
+            pages_read=412,
+        )
         low_rating_response = self.client.post(url, {**payload, "rating": 0}, format="json")
         high_rating_response = self.client.post(url, {**payload, "rating": 6}, format="json")
         valid_response = self.client.post(url, payload, format="json")
@@ -76,6 +82,7 @@ class MyBooksAPITests(APITestCase):
             user=self.user,
             book=self.book,
             status=LibraryEntry.Status.READ,
+            pages_read=412,
         )
         Review.objects.create(user=self.user, book=self.book, rating=5)
 

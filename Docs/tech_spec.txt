@@ -40,6 +40,8 @@ O usuário poderá cadastrar livros, organizar sua biblioteca nas categorias **Q
 6. Apenas livros marcados como lidos podem receber avaliações.
 7. Cada usuário pode manter uma única avaliação por livro, podendo editá-la ou removê-la.
 8. O status de leitura de cada livro deve ser atualizado conforme o usuário avança entre **Quero ler**, **Lendo** e **Lido**.
+8.1. O número de páginas lidas pertence ao registro individual do usuário e não pode exceder o total de páginas da obra.
+8.2. Para marcar um livro como **Lido**, o total de páginas deve estar cadastrado e ser igual ao número de páginas lidas pelo usuário.
 9. Remover um livro da biblioteca de um usuário não deve apagar o cadastro geral da obra nem afetar outros usuários.
 10. No protótipo, a lista de tendências será administrada pelo sistema. A regra para calcular tendências automaticamente poderá ser definida em uma versão futura.
 
@@ -71,6 +73,8 @@ O usuário poderá cadastrar livros, organizar sua biblioteca nas categorias **Q
 - Título
 - Autor
 - Sinopse (opcional)
+- Gênero (opcional)
+- Total de páginas (opcional até o dado ser conhecido)
 - Capa (opcional)
 - Data de publicação (opcional)
 
@@ -79,7 +83,8 @@ O usuário poderá cadastrar livros, organizar sua biblioteca nas categorias **Q
 - Identificador
 - Usuário
 - Livro
-- Status: desejado ou lido
+- Status: Quero ler, Lendo ou Lido
+- Páginas lidas por aquele usuário
 - Data em que foi adicionado
 
 **Avaliação**
