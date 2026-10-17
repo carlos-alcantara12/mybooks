@@ -15,6 +15,8 @@ from .models import (
     Book,
     LibraryEntry,
     ReadingActivity,
+    ReadingGoal,
+    ReadingSession,
     Review,
     SharedBookRemovalRequest,
     SharedLibrary,
@@ -128,13 +130,28 @@ class ReadingStatsView(APIView):
                 (weekly_totals, local_date - timedelta(days=local_date.weekday())),
                 (monthly_totals, (local_date.year, local_date.month)),
             ):
-                current = bucket.setdefault(key, [0, 0])
+                current = bucket.setdefault(key, [0, 0, 0])
                 current[0] += totals[0]
                 current[1] += totals[1]
 
+        sessions = ReadingSession.objects.filter(
+            user=request.user,
+            ended_at__isnull=False,
+            started_at__gte=start_datetime,
+        ).only("duration_seconds", "started_at")
+        for session in sessions:
+            local_date = timezone.localtime(session.started_at).date()
+            for bucket, key in (
+                (daily_totals, local_date),
+                (weekly_totals, local_date - timedelta(days=local_date.weekday())),
+                (monthly_totals, (local_date.year, local_date.month)),
+            ):
+                current = bucket.setdefault(key, [0, 0, 0])
+                current[2] += session.duration_seconds
+
         def bucket_row(label, key, values):
-            pages, books = values.get(key, (0, 0))
-            return {"label": label, "pages": pages, "books": books}
+            pages, books, seconds = values.get(key, (0, 0, 0))
+            return {"label": label, "pages": pages, "books": books, "minutes": (seconds + 30) // 60}
 
         daily = [
             bucket_row(day.strftime("%d/%m"), day, daily_totals)
@@ -157,6 +174,61 @@ class ReadingStatsView(APIView):
             for year, month in month_dates
         ]
         return Response({"daily": daily, "weekly": weekly, "monthly": monthly})
+
+
+class ReadingGoalView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        goal, _created = ReadingGoal.objects.get_or_create(user=request.user)
+        return Response({"target_minutes": goal.target_minutes})
+
+    def patch(self, request):
+        target = request.data.get("target_minutes")
+        if isinstance(target, bool) or not isinstance(target, int) or not 1 <= target <= 1440:
+            raise ValidationError({"target_minutes": "A meta deve ser um número inteiro entre 1 e 1440 minutos."})
+        goal, _created = ReadingGoal.objects.update_or_create(
+            user=request.user,
+            defaults={"target_minutes": target},
+        )
+        return Response({"target_minutes": goal.target_minutes})
+
+
+class ReadingSessionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        session = ReadingSession.objects.filter(user=request.user, ended_at__isnull=True).first()
+        return Response({"active": self.serialize(session) if session else None})
+
+    def post(self, request, action=None):
+        if action == "start":
+            active = ReadingSession.objects.filter(user=request.user, ended_at__isnull=True).first()
+            if active:
+                return Response({"active": self.serialize(active)})
+            session = ReadingSession.objects.create(user=request.user)
+            return Response({"active": self.serialize(session)}, status=status.HTTP_201_CREATED)
+
+        if action == "stop":
+            session = ReadingSession.objects.filter(user=request.user, ended_at__isnull=True).first()
+            if not session:
+                raise ValidationError({"detail": "Não há uma sessão de leitura ativa."})
+            now = timezone.now()
+            session.ended_at = now
+            session.duration_seconds = max(0, int((now - session.started_at).total_seconds()))
+            session.save(update_fields=["ended_at", "duration_seconds"])
+            return Response({"session": self.serialize(session)})
+
+        raise ValidationError({"action": "Use start ou stop."})
+
+    @staticmethod
+    def serialize(session):
+        return {
+            "id": session.id,
+            "started_at": session.started_at,
+            "ended_at": session.ended_at,
+            "duration_seconds": session.duration_seconds,
+        }
 
 
 class RegisterView(generics.CreateAPIView):

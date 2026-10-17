@@ -177,6 +177,48 @@ class ReadingActivity(models.Model):
         return f"{self.user}: {self.pages_read} páginas em {self.book}"
 
 
+class ReadingGoal(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reading_goal",
+        verbose_name="usuário",
+    )
+    target_minutes = models.PositiveSmallIntegerField("meta diária em minutos", default=30)
+    updated_at = models.DateTimeField("atualizada em", auto_now=True)
+
+    def __str__(self):
+        return f"Meta de {self.user}: {self.target_minutes} min/dia"
+
+
+class ReadingSession(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reading_sessions",
+        verbose_name="usuário",
+    )
+    started_at = models.DateTimeField("iniciada em", default=timezone.now)
+    ended_at = models.DateTimeField("encerrada em", null=True, blank=True)
+    duration_seconds = models.PositiveIntegerField("duração em segundos", default=0)
+
+    class Meta:
+        ordering = ["-started_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=Q(ended_at__isnull=True),
+                name="unique_open_reading_session_per_user",
+            ),
+        ]
+        indexes = [models.Index(fields=["user", "started_at"], name="reading_session_user_start_idx")]
+        verbose_name = "sessão de leitura"
+        verbose_name_plural = "sessões de leitura"
+
+    def __str__(self):
+        return f"Sessão de {self.user}: {self.duration_seconds}s"
+
+
 class SharedLibrary(models.Model):
     name = models.CharField("nome", max_length=120)
     owner = models.ForeignKey(

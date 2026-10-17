@@ -4,6 +4,8 @@ from .models import (
     Book,
     LibraryEntry,
     ReadingActivity,
+    ReadingGoal,
+    ReadingSession,
     Review,
     SharedBookRemovalRequest,
     SharedLibrary,
@@ -40,6 +42,17 @@ class ReadingActivityAdmin(admin.ModelAdmin):
     list_display = ("user", "book", "pages_read", "books_completed", "recorded_at")
     list_filter = ("recorded_at",)
     search_fields = ("user__username", "book__title")
+
+@admin.register(ReadingGoal)
+class ReadingGoalAdmin(admin.ModelAdmin):
+    list_display = ("user", "target_minutes", "updated_at")
+    search_fields = ("user__username",)
+
+@admin.register(ReadingSession)
+class ReadingSessionAdmin(admin.ModelAdmin):
+    list_display = ("user", "started_at", "ended_at", "duration_seconds")
+    list_filter = ("started_at", "ended_at")
+    search_fields = ("user__username",)
 
 @admin.register(TrendingBook)
 class TrendingBookAdmin(admin.ModelAdmin):

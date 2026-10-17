@@ -286,6 +286,22 @@ button { color: inherit; }
 .book-dialog__error { margin: 12px 0 0; color: #9c493b; font-size: .83rem; }
 .book-dialog__close:focus-visible, .book-dialog__rating button:focus-visible { outline: 2px solid #8a6244; outline-offset: 3px; }
 .reading-progress-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 25px; }
+.reading-timer { margin-top: 25px; padding: clamp(17px, 3vw, 28px); border: 1px solid rgba(117, 81, 56, .21); background: linear-gradient(120deg, rgba(255, 252, 246, .96), rgba(241, 231, 213, .9)); box-shadow: 0 12px 30px rgba(65, 48, 32, .075); }
+.reading-timer__main { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 22px; }
+.reading-timer__main .library-kicker { margin-bottom: 7px; }
+.reading-timer__main h2 { margin: 0; color: #45372b; font-family: Georgia, serif; font-size: 1.7rem; font-weight: 400; }
+.reading-timer__today { margin: 7px 0 0; color: #827464; font-size: .87rem; }
+.reading-timer__clock { color: #65482f; font-family: Georgia, serif; font-size: clamp(2rem, 5vw, 3rem); font-variant-numeric: tabular-nums; letter-spacing: .06em; }
+.reading-timer__clock.is-running { color: #526348; }
+.reading-timer__main > .library-primary-button { min-width: 150px; }
+.reading-timer__goal { display: flex; align-items: center; gap: 12px; margin-top: 18px; color: #847766; font-size: .75rem; }
+.reading-timer__goal-track { height: 8px; flex: 1; overflow: hidden; border-radius: 8px; background: #e2d6c2; }
+.reading-timer__goal-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #73805d, #9b9a69); transition: width .4s ease; }
+.reading-timer__goal-form { display: flex; align-items: center; gap: 8px; margin-top: 16px; color: #786854; font-size: .78rem; }
+.reading-timer__goal-form input { width: 75px; min-height: 36px; padding: 6px 8px; border: 1px solid rgba(117, 81, 56, .25); background: rgba(255, 255, 255, .7); color: #45372b; font: inherit; }
+.reading-timer__goal-form button { min-height: 36px; margin-left: 4px; padding: 6px 11px; border: 1px solid rgba(117, 81, 56, .32); background: transparent; color: #68482f; font: inherit; cursor: pointer; }
+.reading-timer__goal-form button:hover:not(:disabled) { background: rgba(138, 98, 68, .08); }
+.reading-timer__goal-form button:disabled { cursor: wait; opacity: .55; }
 .reading-chart { min-width: 0; padding: 18px 16px 14px; border: 1px solid rgba(117, 81, 56, .19); background: linear-gradient(145deg, rgba(255, 252, 246, .9), rgba(246, 238, 223, .7)); box-shadow: 0 9px 24px rgba(65, 48, 32, .055); }
 .reading-chart__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .reading-chart__heading h2 { margin: 0; color: #45372b; font-family: Georgia, serif; font-size: 1.32rem; font-weight: 400; }
@@ -401,6 +417,10 @@ button { color: inherit; }
   .reading-progress-grid { grid-template-columns: 1fr; }
   .reading-chart { padding: 17px 14px 13px; }
   .reading-chart__plot { height: 145px; }
+  .reading-timer__main { grid-template-columns: 1fr auto; gap: 12px; }
+  .reading-timer__clock { grid-column: 1; grid-row: 2; }
+  .reading-timer__main > .library-primary-button { grid-column: 2; grid-row: 1 / span 2; min-width: 0; padding: 10px 12px; font-size: .7rem; }
+  .reading-timer__goal-form { flex-wrap: wrap; }
   .book-dialog-backdrop { align-items: start; padding: 10px; }
   .book-dialog { margin: auto 0; padding: 10px; }
   .book-dialog__book-open { min-height: 0; grid-template-columns: 1fr; }

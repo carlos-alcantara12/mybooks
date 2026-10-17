@@ -117,7 +117,9 @@ A resposta de livro inclui `id`, esses campos e `created_at` em formato ISO 8601
 
 ### Progresso de leitura
 
-`GET /api/reading-stats/` retorna os avanços registrados pela pessoa autenticada, agrupados por dia (últimos 7 dias), semana (últimas 8 semanas) e mês (últimos 6 meses). Cada período contém `label`, `pages` (páginas avançadas) e `books` (obras concluídas). O histórico começa a ser registrado a partir da aplicação da migração; atividades anteriores não podem ser reconstruídas a partir do progresso atual.
+`GET /api/reading-stats/` retorna os avanços registrados pela pessoa autenticada, agrupados por dia (últimos 7 dias), semana (últimas 8 semanas) e mês (últimos 6 meses). Cada período contém `label`, `pages` (páginas avançadas), `books` (obras concluídas) e `minutes` (tempo cronometrado). O histórico começa a ser registrado a partir da aplicação das migrações; atividades anteriores não podem ser reconstruídas a partir do progresso atual.
+
+O timer usa `GET /api/reading-sessions/` para consultar uma sessão ativa, `POST /api/reading-sessions/start/` para iniciar e `POST /api/reading-sessions/stop/` para encerrar. Só pode haver uma sessão ativa por usuário. `GET /api/reading-goal/` consulta a meta diária; `PATCH /api/reading-goal/` atualiza `target_minutes` (inteiro entre 1 e 1440; padrão de 30 minutos). As sessões encerradas compõem o total de minutos dos gráficos.
 
 Exemplo de resposta:
 
