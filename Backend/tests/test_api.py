@@ -43,7 +43,7 @@ class MyBooksAPITests(APITestCase):
 
     def test_duplicate_library_entry_is_rejected(self):
         url = reverse("library-entry-list")
-        payload = {"book_id": self.book.pk, "status": LibraryEntry.Status.WISHLIST}
+        payload = {"book_id": self.book.pk, "status": LibraryEntry.Status.WANT_TO_READ}
 
         first_response = self.client.post(url, payload, format="json")
         duplicate_response = self.client.post(url, payload, format="json")
@@ -81,7 +81,7 @@ class MyBooksAPITests(APITestCase):
 
         update_response = self.client.patch(
             reverse("library-entry-detail", args=[entry.pk]),
-            {"status": LibraryEntry.Status.WISHLIST},
+            {"status": LibraryEntry.Status.WANT_TO_READ},
             format="json",
         )
         self.assertEqual(update_response.status_code, status.HTTP_400_BAD_REQUEST)

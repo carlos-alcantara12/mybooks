@@ -102,10 +102,10 @@ A resposta de livro inclui `id`, esses campos e `created_at` em formato ISO 8601
 Exemplo de criação:
 
 ```json
-{"book_id": 12, "status": "WISHLIST"}
+{"book_id": 12, "status": "WANT_TO_READ"}
 ```
 
-`book_id` deve referenciar um livro existente. `status` aceita `WISHLIST` ou `READ`. O mesmo livro não pode aparecer duas vezes na biblioteca da mesma pessoa. Mover para `WISHLIST` é recusado enquanto houver uma avaliação; excluir o item também exclui sua avaliação, mas mantém o livro no catálogo.
+`book_id` deve referenciar um livro existente. `status` aceita `WANT_TO_READ` (Quero ler), `READING` (Lendo) ou `READ` (Lido). O mesmo livro não pode aparecer duas vezes na biblioteca da mesma pessoa. Um livro com avaliação não pode ser movido para outra categoria; excluir o item também exclui sua avaliação, mas mantém o livro no catálogo.
 
 A resposta inclui `id`, `status`, `added_at` e o objeto `book` do catálogo.
 
@@ -125,7 +125,7 @@ Exemplo:
 {"book_id": 12, "rating": 5, "comment": "Uma leitura excelente."}
 ```
 
-`book_id` e `rating` são obrigatórios na criação; `comment` é opcional. `rating` aceita um inteiro de `1` a `5`. Só é permitido avaliar livros com status `READ`, e cada pessoa pode ter uma avaliação por livro. A resposta inclui o objeto `book` com os dados do catálogo.
+`book_id` e `rating` são obrigatórios na criação; `comment` é opcional. `rating` aceita um inteiro de `1` a `5`. Só é permitido avaliar livros com status `READ` (Lido), e cada pessoa pode ter uma avaliação por livro. A resposta inclui o objeto `book` com os dados do catálogo.
 
 A resposta também inclui `id` e `reviewed_at` em formato ISO 8601.
 
@@ -145,7 +145,7 @@ Exemplo de criação administrativa:
 {"book_id": 12, "position": 1}
 ```
 
-Cada livro pode aparecer uma vez na lista de tendências. Para adicionar um destaque à lista de desejos, crie uma entrada em `/api/library/` com `status: "WISHLIST"`.
+Cada livro pode aparecer uma vez na lista de tendências. Para adicionar um destaque à categoria Quero ler, crie uma entrada em `/api/library/` com `status: "WANT_TO_READ"`.
 
 ## Respostas de erro
 

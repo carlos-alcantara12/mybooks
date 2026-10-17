@@ -28,18 +28,18 @@ O sistema será voltado a leitores que querem manter seu histórico de leitura, 
 
 Será oferecida uma aplicação web de biblioteca pessoal. O frontend será construído com HTML, CSS, JavaScript e React. O backend usará Python, Django e Django REST Framework para gerenciar os dados e disponibilizá-los por uma API.
 
-O usuário poderá cadastrar livros, organizar sua biblioteca em duas listas — **Lidos** e **Desejados** — e registrar notas e comentários sobre as obras concluídas. Uma seção apresentará livros em tendência. Para o protótipo, esses destaques poderão ser definidos por uma lista inicial; em versões futuras, a seleção poderá considerar leituras e avaliações dos usuários.
+O usuário poderá cadastrar livros, organizar sua biblioteca nas categorias **Quero ler**, **Lendo** e **Lido**, e registrar notas e comentários sobre as obras concluídas. Uma seção apresentará livros em tendência. Para o protótipo, esses destaques poderão ser definidos por uma lista inicial; em versões futuras, a seleção poderá considerar leituras e avaliações dos usuários.
 
 ## 3\. Definição de regras de negócio
 
 1. Cada usuário deve ter uma conta para acessar sua biblioteca.
 2. Cada usuário só pode consultar e alterar os próprios registros da biblioteca.
-3. Um livro pode estar na lista **Desejados** ou **Lidos** de cada usuário.
+3. Um livro pode estar na categoria **Quero ler**, **Lendo** ou **Lido** de cada usuário.
 4. O mesmo livro não pode aparecer duplicado na mesma lista do usuário.
 5. Ao marcar um livro como lido, o usuário poderá atribuir uma nota de 1 a 5 estrelas e escrever um comentário opcional.
 6. Apenas livros marcados como lidos podem receber avaliações.
 7. Cada usuário pode manter uma única avaliação por livro, podendo editá-la ou removê-la.
-8. Ao passar um livro de desejado para lido, seu status na biblioteca deve ser atualizado.
+8. O status de leitura de cada livro deve ser atualizado conforme o usuário avança entre **Quero ler**, **Lendo** e **Lido**.
 9. Remover um livro da biblioteca de um usuário não deve apagar o cadastro geral da obra nem afetar outros usuários.
 10. No protótipo, a lista de tendências será administrada pelo sistema. A regra para calcular tendências automaticamente poderá ser definida em uma versão futura.
 
@@ -120,9 +120,9 @@ A interface deve facilitar o acesso às funções mais usadas e funcionar bem em
 
 **Início:** resumo das listas, atalhos para adicionar livros e alguns destaques de tendências.
 
-**Meus livros:** listas ou abas para **Lidos** e **Desejados**. Cada livro pode aparecer em um card com capa, título e autor. Nos livros lidos, também podem aparecer a nota e um atalho para o comentário.
+**Meus livros:** listas ou abas para **Quero ler**, **Lendo** e **Lido**. Cada livro pode aparecer em um card com capa, título e autor. Nos livros lidos, também podem aparecer a nota e um atalho para o comentário.
 
-**Adicionar livro:** formulário com dados da obra e a pergunta “Você já leu este livro?”. Se a resposta for sim, o sistema oferece campos para nota e comentário. Se for não, adiciona o livro à lista de desejados.
+**Adicionar livro:** formulário com dados da obra e a pergunta “Você já leu este livro?”. Se a resposta for sim, o sistema oferece campos para nota e comentário e inclui o livro em **Lido**. Se for não, o usuário pode adicionar em **Quero ler** ou **Lendo**.
 
 **Tendências:** grade ou lista de livros em destaque, com opção para adicionar uma obra aos desejados.
 
@@ -135,7 +135,7 @@ Informar os dados da obra
       ↓
 Você já leu este livro?
    ├─ Sim → Avaliar e comentar → Adicionar aos Lidos
-   └─ Não → Adicionar aos Desejados
+   └─ Não → Adicionar a Quero ler ou Lendo
 ```
 
 ## 7\. Plano de ação
@@ -173,4 +173,4 @@ Com React, HTML, CSS e JavaScript, serão implementados:
 
 ### Escopo inicial do protótipo
 
-A primeira versão deve permitir que uma pessoa crie uma conta, adicione livros, organize-os como lidos ou desejados e avalie os que leu. A seção de tendências pode usar dados cadastrados previamente. Recursos como integração com catálogos externos, recomendações personalizadas e interação entre usuários podem ser considerados depois.
+A primeira versão deve permitir que uma pessoa crie uma conta, adicione livros, organize-os em **Quero ler**, **Lendo** ou **Lido** e avalie os que concluiu. A seção de tendências pode usar dados cadastrados previamente. Recursos como integração com catálogos externos, recomendações personalizadas e interação entre usuários podem ser considerados depois.

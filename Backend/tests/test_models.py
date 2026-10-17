@@ -26,7 +26,7 @@ class BusinessRuleModelTests(TestCase):
         LibraryEntry.objects.create(
             user=self.user,
             book=self.book,
-            status=LibraryEntry.Status.WISHLIST,
+            status=LibraryEntry.Status.WANT_TO_READ,
         )
         duplicate = LibraryEntry(
             user=self.user,

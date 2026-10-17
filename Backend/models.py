@@ -54,7 +54,8 @@ class Book(models.Model):
 
 class LibraryEntry(models.Model):
     class Status(models.TextChoices):
-        WISHLIST = "WISHLIST", "Desejado"
+        WANT_TO_READ = "WANT_TO_READ", "Quero ler"
+        READING = "READING", "Lendo"
         READ = "READ", "Lido"
 
     user = models.ForeignKey(
@@ -69,7 +70,7 @@ class LibraryEntry(models.Model):
         related_name="library_entries",
         verbose_name="livro",
     )
-    status = models.CharField("status", max_length=8, choices=Status.choices)
+    status = models.CharField("status", max_length=12, choices=Status.choices)
     added_at = models.DateTimeField("adicionado em", default=timezone.now, editable=False)
 
     def clean(self):
@@ -80,8 +81,13 @@ class LibraryEntry(models.Model):
                 duplicate = duplicate.exclude(pk=self.pk)
             if duplicate.exists():
                 raise ValidationError({"book": "Este livro já está na sua biblioteca."})
-        if self.user_id and self.book_id and self.status == self.Status.WISHLIST and Review.objects.filter(user_id=self.user_id, book_id=self.book_id).exists():
-            raise ValidationError({"status": "Remova a avaliação antes de mover o livro para Desejados."})
+        if (
+            self.user_id
+            and self.book_id
+            and self.status != self.Status.READ
+            and Review.objects.filter(user_id=self.user_id, book_id=self.book_id).exists()
+        ):
+            raise ValidationError({"status": "Remova a avaliação antes de mover o livro para outra categoria."})
 
     def save(self, *args, **kwargs):
         self.full_clean()
