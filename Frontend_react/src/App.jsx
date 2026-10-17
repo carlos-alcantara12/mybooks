@@ -133,7 +133,10 @@ function statusLabel(status) {
 function LibraryLanding({ onReturn }) {
   const [accessToken, setAccessToken] = useState(() => window.localStorage.getItem("mybooks:access-token") || "");
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [creatingAccount, setCreatingAccount] = useState(false);
   const [entries, setEntries] = useState([]);
   const [search, setSearch] = useState("");
   const [genre, setGenre] = useState("");
@@ -176,11 +179,24 @@ function LibraryLanding({ onReturn }) {
     return () => controller.abort();
   }, [accessToken, page, submittedSearch, submittedGenre, submittedStatus]);
 
-  async function signIn(event) {
+  async function submitAccess(event) {
     event.preventDefault();
     setLoading(true);
     setError("");
     try {
+      if (creatingAccount) {
+        const registrationResponse = await fetch(`${API_BASE_URL}/auth/register/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, email, password }),
+        });
+        const registrationData = await registrationResponse.json();
+        if (!registrationResponse.ok) {
+          const detail = registrationData.detail || Object.values(registrationData).flat()[0];
+          throw new Error(detail || "Não foi possível criar sua conta.");
+        }
+      }
+
       const response = await fetch(`${API_BASE_URL}/auth/token/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -192,6 +208,7 @@ function LibraryLanding({ onReturn }) {
       window.localStorage.setItem("mybooks:refresh-token", data.refresh);
       setAccessToken(data.access);
       setPassword("");
+      setCreatingAccount(false);
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -216,7 +233,7 @@ function LibraryLanding({ onReturn }) {
 
   return (
     <main className="library-landing">
-      <header className="library-header">
+      <header className={`library-header${accessToken ? "" : " library-header--login"}`}>
         <a className="library-wordmark" href="#inicio" onClick={(event) => { event.preventDefault(); onReturn(); }}>
           MyBooks<span aria-hidden="true">.</span>
         </a>
@@ -226,25 +243,63 @@ function LibraryLanding({ onReturn }) {
         </div>
       </header>
       {!accessToken ? (
-        <section className="library-welcome login-panel" aria-labelledby="library-title">
-          <p className="library-kicker">bem-vindo à sua coleção</p>
-          <h1 id="library-title">Entre para abrir<br />sua biblioteca.</h1>
-          <p className="library-description">Use sua conta MyBooks para buscar e filtrar seus livros.</p>
-          <form className="login-form" onSubmit={signIn}>
-            <label>
-              <span>Nome de usuário</span>
-              <input autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)} />
-            </label>
-            <label>
-              <span>Senha</span>
-              <input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
-            </label>
-            {error && <p className="library-error" role="alert">{error}</p>}
-            <button className="library-primary-button" type="submit" disabled={loading}>
-              {loading ? "entrando…" : "entrar na biblioteca"}
-            </button>
-          </form>
-        </section>
+        <div className="login-layout">
+          <aside className="login-story" aria-label="Uma mensagem sobre leitura">
+            <span className="login-story__eyebrow">MYBOOKS · SUA BIBLIOTECA</span>
+            <div className="login-story__books" aria-hidden="true">
+              <span className="login-book login-book--rust" />
+              <span className="login-book login-book--sage" />
+              <span className="login-book login-book--ochre" />
+              <span className="login-book login-book--plum" />
+            </div>
+            <h2>Uma estante guarda mais do que livros.</h2>
+            <p>Guarda os lugares a que cada história levou você.</p>
+            <span className="login-story__rule" aria-hidden="true" />
+            <span className="login-story__caption">um capítulo de cada vez</span>
+          </aside>
+
+          <section className="login-card" aria-labelledby="library-title">
+            <p className="login-card__eyebrow">{creatingAccount ? "COMECE SUA COLEÇÃO" : "BEM-VINDO DE VOLTA"}</p>
+            <h1 id="library-title">{creatingAccount ? "Sua história começa aqui." : "Que bom ter você de volta."}</h1>
+            <p className="login-card__description">
+              {creatingAccount ? "Crie sua conta e dê um lugar às histórias que você ama." : "Entre para continuar de onde sua última leitura levou você."}
+            </p>
+
+            <form className="login-form" onSubmit={submitAccess}>
+              <label>
+                <span>Nome de usuário</span>
+                <input autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)} />
+              </label>
+              {creatingAccount && (
+                <label>
+                  <span>E-mail</span>
+                  <input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
+                </label>
+              )}
+              <label>
+                <span>Senha</span>
+                <span className="password-field">
+                  <input type={showPassword ? "text" : "password"} autoComplete={creatingAccount ? "new-password" : "current-password"} required minLength={creatingAccount ? 8 : undefined} value={password} onChange={(event) => setPassword(event.target.value)} />
+                  <button type="button" className="password-toggle" onClick={() => setShowPassword((value) => !value)} aria-pressed={showPassword}>
+                    {showPassword ? "Ocultar" : "Mostrar"}
+                  </button>
+                </span>
+                {creatingAccount && <small className="password-hint">Use pelo menos 8 caracteres.</small>}
+              </label>
+              {error && <p className="library-error" role="alert">{error}</p>}
+              <button className="library-primary-button" type="submit" disabled={loading}>
+                {loading ? "aguarde…" : creatingAccount ? "criar minha conta" : "entrar na minha biblioteca"}
+              </button>
+            </form>
+
+            <p className="login-switch">
+              {creatingAccount ? "Já tem uma conta?" : "Ainda não tem uma conta?"}
+              <button type="button" onClick={() => { setCreatingAccount((value) => !value); setError(""); }}>
+                {creatingAccount ? "Entrar" : "Criar conta"}
+              </button>
+            </p>
+          </section>
+        </div>
       ) : (
         <section className="personal-library" aria-labelledby="library-title">
           <div className="personal-library__heading">
