@@ -4,7 +4,7 @@ O **MyBooks** é uma aplicação web para organizar livros e acompanhar a vida d
 
 Além de ser útil no dia a dia, o projeto serve como exemplo prático de desenvolvimento de software: reúne modelagem de dados, API REST, autenticação, regras de negócio, validação de informações e uma base para a futura construção de uma interface web.
 
-> **Estado do projeto nesta versão:** o backend Django oferece bibliotecas pessoais e compartilhadas, correio interno, convites, pedidos de remoção, avaliações e progresso por páginas. O frontend React começou com a tela de entrada animada e uma transição para a área da biblioteca. Timer, gráficos, estante interativa e integração completa com a API ainda precisam ser implementados.
+> **Estado do projeto nesta versão:** o backend Django oferece bibliotecas pessoais e compartilhadas, correio interno, convites, pedidos de remoção, avaliações, progresso por páginas e busca/filtros. O frontend React inclui tela de entrada, login e consulta da biblioteca pessoal com busca por título/autor e filtros de gênero e categoria. Timer, gráficos, estante interativa e demais fluxos da API ainda precisam ser implementados.
 
 ---
 
@@ -173,7 +173,7 @@ Com o backend em execução, a API fica sob o prefixo `/api/`.
 | `POST /api/auth/token/` | Obter tokens JWT usando usuário e senha |
 | `POST /api/auth/token/refresh/` | Renovar o token de acesso |
 | `/api/books/` | Consultar o catálogo; criar obras para usuários autenticados; editar/remover como administrador |
-| `/api/library/` | Consultar e gerenciar a biblioteca do usuário autenticado |
+| `/api/library/` | Consultar e gerenciar a biblioteca do usuário autenticado; buscar por título/autor e filtrar por gênero/status |
 | `/api/reviews/` | Consultar e gerenciar as avaliações do usuário autenticado |
 | `/api/trending/` | Consultar livros em tendência; alterar a lista como administrador |
 | `/api/shared-libraries/` | Criar e consultar bibliotecas compartilhadas |
@@ -390,13 +390,13 @@ Possíveis melhorias futuras, a serem priorizadas conforme o objetivo do projeto
 4. **Frontend React:** implementar as categorias, gráficos, correio visual e telas da biblioteca.
 5. **Estante animada:** criar a estante de madeira, interação com livros, visualização aberta com resumo e suporte a capas.
 6. **Tela de entrada:** ✅ escrita animada de MyBooks, frase literária variável com autoria e ação para prosseguir.
-7. **Busca e filtros:** permitir pesquisar por título ou autor e filtrar a biblioteca.
+7. **Busca e filtros:** ✅ pesquisa por título/autor e filtros por gênero e categoria na biblioteca pessoal.
 8. **Integração com catálogo externo:** avaliar uma fonte apropriada para metadados e capas, respeitando os termos de uso.
 9. **Produção e qualidade:** revisar testes, acessibilidade, banco de dados, segurança, deploy, observabilidade e backups.
 
 ## 12. Escopo atual e próximos passos
 
-Esta cópia contém a base do backend e o início do frontend React. A tela de entrada já está implementada; após prosseguir, o usuário chega à página inicial da biblioteca, ainda em construção. Timer, gráficos, estante interativa, telas de correio e integração da interface com as APIs continuam como próximas etapas.
+Esta cópia contém o backend e o frontend React inicial. A interface permite entrar com uma conta MyBooks e consultar a biblioteca pessoal com busca e filtros conectados à API. Timer, gráficos, estante interativa, telas de correio e os demais fluxos visuais continuam como próximas etapas.
 
 Uma sequência de trabalho recomendada é:
 

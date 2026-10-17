@@ -39,6 +39,7 @@ Referência detalhada de endpoints, payloads, permissões e erros: [API.md](API.
 - `/api/trending/`: consulta autenticada; alterações somente por administradores.
 - `/api/shared-libraries/`, `/api/shared-books/`, `/api/shared-reading/`, `/api/shared-invitations/` e `/api/shared-removal-requests/`: bibliotecas compartilhadas, estantes, progresso individual, convites e pedidos internos de remoção.
 - `/api/mailbox/`: caixa de entrada unificada de convites e notificações internas, com contador de itens não abertos.
+- `/api/books/`, `/api/library/` e `/api/shared-books/` aceitam `search` por título/autor e `genre`; a biblioteca e a estante compartilhadas também aceitam filtro `status`.
 - `/admin/`: administração Django.
 
 A biblioteca e as avaliações são filtradas pelo usuário autenticado. Remover uma entrada não remove a obra do catálogo.

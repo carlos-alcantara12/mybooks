@@ -62,6 +62,18 @@ A resposta `200` contém um novo `access`.
 | `/api/shared-removal-requests/` | Solicitante e responsável pela decisão | Participante pede remoção de livro adicionado por outra pessoa | Quem adicionou aprova ou recusa |
 | `/api/mailbox/` | Apenas o destinatário | Reúne cartas e notificações recebidas | A abertura é registrada nos recursos de origem |
 
+### Busca e filtros
+
+As listas do catálogo, da biblioteca pessoal e das estantes compartilhadas aceitam parâmetros de busca e filtros. `search` procura por título ou autor; `genre` procura pelo gênero; `status` filtra pelo status individual de leitura (`WANT_TO_READ`, `READING` ou `READ`).
+
+```text
+GET /api/books/?search=machado&genre=romance
+GET /api/library/?search=dom&status=READ
+GET /api/shared-books/?genre=ficção&status=READING
+```
+
+Os parâmetros podem ser combinados. Os resultados continuam paginados e respeitam as permissões de cada rota: a biblioteca pessoal mostra apenas os livros do usuário autenticado; na estante compartilhada, o filtro de status usa o progresso do próprio participante.
+
 As rotas de biblioteca e avaliações não aceitam `user_id` no corpo. Um usuário não pode consultar ou alterar registros de outra pessoa.
 
 ## Recursos

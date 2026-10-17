@@ -88,6 +88,19 @@ class RegisterView(generics.CreateAPIView):
 class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.all()
     serializer_class = BookSerializer
+
+    def get_queryset(self):
+        queryset = Book.objects.all()
+        search = self.request.query_params.get("search", "").strip()
+        genre = self.request.query_params.get("genre", "").strip()
+        if search:
+            queryset = queryset.filter(Q(title__icontains=search) | Q(author__icontains=search))
+        if genre:
+            queryset = queryset.filter(genre__icontains=genre)
+        return queryset
+
+
+
     def get_permissions(self):
         if self.action in ("list", "retrieve", "create"):
             return [permissions.IsAuthenticated()]
@@ -96,7 +109,20 @@ class BookViewSet(viewsets.ModelViewSet):
 class LibraryEntryViewSet(viewsets.ModelViewSet):
     serializer_class = LibraryEntrySerializer
     def get_queryset(self):
-        return LibraryEntry.objects.filter(user=self.request.user).select_related("book")
+        queryset = LibraryEntry.objects.filter(user=self.request.user).select_related("book")
+        search = self.request.query_params.get("search", "").strip()
+        genre = self.request.query_params.get("genre", "").strip()
+        reading_status = self.request.query_params.get("status", "").strip()
+        if search:
+            queryset = queryset.filter(Q(book__title__icontains=search) | Q(book__author__icontains=search))
+        if genre:
+            queryset = queryset.filter(book__genre__icontains=genre)
+        if reading_status:
+            allowed_statuses = {choice for choice, _label in LibraryEntry.Status.choices}
+            if reading_status not in allowed_statuses:
+                raise ValidationError({"status": "Use WANT_TO_READ, READING ou READ."})
+            queryset = queryset.filter(status=reading_status)
+        return queryset
     def perform_create(self, serializer):
         serializer.save()
     def perform_destroy(self, instance):
@@ -144,11 +170,24 @@ class SharedLibraryBookViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "delete", "head", "options"]
 
     def get_queryset(self):
-        return SharedLibraryBook.objects.filter(
+        queryset = SharedLibraryBook.objects.filter(
             shared_library__memberships__user=self.request.user
         ).distinct().select_related("book", "shared_library", "added_by").prefetch_related(
             "reading_states__user"
         )
+        search = self.request.query_params.get("search", "").strip()
+        genre = self.request.query_params.get("genre", "").strip()
+        reading_status = self.request.query_params.get("status", "").strip()
+        if search:
+            queryset = queryset.filter(Q(book__title__icontains=search) | Q(book__author__icontains=search))
+        if genre:
+            queryset = queryset.filter(book__genre__icontains=genre)
+        if reading_status:
+            allowed_statuses = {choice for choice, _label in LibraryEntry.Status.choices}
+            if reading_status not in allowed_statuses:
+                raise ValidationError({"status": "Use WANT_TO_READ, READING ou READ."})
+            queryset = queryset.filter(reading_states__user=self.request.user, reading_states__status=reading_status)
+        return queryset.distinct()
 
     def perform_destroy(self, instance):
         if instance.added_by_id != self.request.user.id:

@@ -24,6 +24,7 @@ const quotes = [
 ];
 
 const LAST_QUOTE_KEY = "mybooks:last-welcome-quote";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 
 function chooseQuote() {
   const lastQuote = window.localStorage.getItem(LAST_QUOTE_KEY);
@@ -91,35 +92,235 @@ function WelcomeScreen({ onContinue }) {
   );
 }
 
+async function getLibraryPage(path, token, onToken, signal) {
+  let response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal,
+  });
+
+  if (response.status === 401) {
+    const refresh = window.localStorage.getItem("mybooks:refresh-token");
+    if (!refresh) throw new Error("Sua sessão expirou. Entre novamente.");
+    const refreshResponse = await fetch(`${API_BASE_URL}/auth/token/refresh/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh }),
+      signal,
+    });
+    if (!refreshResponse.ok) throw new Error("Sua sessão expirou. Entre novamente.");
+    const refreshed = await refreshResponse.json();
+    window.localStorage.setItem("mybooks:access-token", refreshed.access);
+    onToken(refreshed.access);
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: { Authorization: `Bearer ${refreshed.access}` },
+      signal,
+    });
+  }
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.detail || "Não foi possível carregar sua biblioteca.");
+  return data;
+}
+
+function statusLabel(status) {
+  return {
+    WANT_TO_READ: "Quero ler",
+    READING: "Lendo",
+    READ: "Lido",
+  }[status] || status;
+}
+
 function LibraryLanding({ onReturn }) {
+  const [accessToken, setAccessToken] = useState(() => window.localStorage.getItem("mybooks:access-token") || "");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [entries, setEntries] = useState([]);
+  const [search, setSearch] = useState("");
+  const [genre, setGenre] = useState("");
+  const [status, setStatus] = useState("");
+  const [submittedSearch, setSubmittedSearch] = useState("");
+  const [submittedGenre, setSubmittedGenre] = useState("");
+  const [submittedStatus, setSubmittedStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
+  const [totalEntries, setTotalEntries] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!accessToken) return undefined;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ page: String(page) });
+    if (submittedSearch) params.set("search", submittedSearch);
+    if (submittedGenre) params.set("genre", submittedGenre);
+    if (submittedStatus) params.set("status", submittedStatus);
+
+    setLoading(true);
+    setError("");
+    getLibraryPage(`/library/?${params.toString()}`, accessToken, setAccessToken, controller.signal)
+      .then((data) => {
+        setEntries(data.results || []);
+        setTotalEntries(data.count || 0);
+        setHasNext(Boolean(data.next));
+        setHasPrevious(Boolean(data.previous));
+      })
+      .catch((requestError) => {
+        if (requestError.name !== "AbortError") {
+          setError(requestError.message);
+          if (requestError.message.includes("sessão expirou")) signOut();
+        }
+      })
+      .finally(() => setLoading(false));
+
+    return () => controller.abort();
+  }, [accessToken, page, submittedSearch, submittedGenre, submittedStatus]);
+
+  async function signIn(event) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/token/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Usuário ou senha inválidos.");
+      window.localStorage.setItem("mybooks:access-token", data.access);
+      window.localStorage.setItem("mybooks:refresh-token", data.refresh);
+      setAccessToken(data.access);
+      setPassword("");
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function signOut() {
+    window.localStorage.removeItem("mybooks:access-token");
+    window.localStorage.removeItem("mybooks:refresh-token");
+    setAccessToken("");
+    setEntries([]);
+  }
+
+  function applyFilters(event) {
+    event.preventDefault();
+    setPage(1);
+    setSubmittedSearch(search.trim());
+    setSubmittedGenre(genre.trim());
+    setSubmittedStatus(status);
+  }
+
   return (
     <main className="library-landing">
       <header className="library-header">
         <a className="library-wordmark" href="#inicio" onClick={(event) => { event.preventDefault(); onReturn(); }}>
           MyBooks<span aria-hidden="true">.</span>
         </a>
-        <span className="library-header__label">sua biblioteca</span>
-      </header>
-      <section className="library-welcome" aria-labelledby="library-title">
-        <p className="library-kicker">bem-vindo à sua coleção</p>
-        <h1 id="library-title">Toda grande leitura<br />merece um lugar.</h1>
-        <p className="library-description">
-          Este espaço será sua biblioteca pessoal: livros, progresso e histórias que ficam com você.
-        </p>
-        <div className="empty-shelf" aria-label="Estante vazia">
-          <div className="empty-shelf__books" aria-hidden="true">
-            <span className="shelf-book shelf-book--one" />
-            <span className="shelf-book shelf-book--two" />
-            <span className="shelf-book shelf-book--three" />
-            <span className="shelf-book shelf-book--four" />
-          </div>
-          <div className="empty-shelf__wood" />
-          <p>Sua estante começa com a próxima história.</p>
+        <div className="library-header__actions">
+          <span className="library-header__label">sua biblioteca</span>
+          {accessToken && <button className="library-text-button" type="button" onClick={signOut}>sair</button>}
         </div>
-        <button className="back-to-welcome" type="button" onClick={onReturn}>
-          voltar à abertura
-        </button>
-      </section>
+      </header>
+      {!accessToken ? (
+        <section className="library-welcome login-panel" aria-labelledby="library-title">
+          <p className="library-kicker">bem-vindo à sua coleção</p>
+          <h1 id="library-title">Entre para abrir<br />sua biblioteca.</h1>
+          <p className="library-description">Use sua conta MyBooks para buscar e filtrar seus livros.</p>
+          <form className="login-form" onSubmit={signIn}>
+            <label>
+              <span>Nome de usuário</span>
+              <input autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)} />
+            </label>
+            <label>
+              <span>Senha</span>
+              <input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
+            </label>
+            {error && <p className="library-error" role="alert">{error}</p>}
+            <button className="library-primary-button" type="submit" disabled={loading}>
+              {loading ? "entrando…" : "entrar na biblioteca"}
+            </button>
+          </form>
+        </section>
+      ) : (
+        <section className="personal-library" aria-labelledby="library-title">
+          <div className="personal-library__heading">
+            <div>
+              <p className="library-kicker">sua coleção pessoal</p>
+              <h1 id="library-title">Biblioteca</h1>
+            </div>
+            <p className="library-count">{totalEntries} {totalEntries === 1 ? "livro" : "livros"}</p>
+          </div>
+
+          <form className="library-filters" onSubmit={applyFilters}>
+            <label className="filter-search">
+              <span>Buscar por título ou autor</span>
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ex.: Machado de Assis" />
+            </label>
+            <label>
+              <span>Gênero</span>
+              <input value={genre} onChange={(event) => setGenre(event.target.value)} placeholder="Todos os gêneros" />
+            </label>
+            <label>
+              <span>Categoria</span>
+              <select value={status} onChange={(event) => setStatus(event.target.value)}>
+                <option value="">Todas</option>
+                <option value="WANT_TO_READ">Quero ler</option>
+                <option value="READING">Lendo</option>
+                <option value="READ">Lido</option>
+              </select>
+            </label>
+            <div className="filter-actions">
+              <button className="library-primary-button" type="submit">aplicar filtros</button>
+              <button className="library-text-button" type="button" onClick={() => {
+                setSearch(""); setGenre(""); setStatus(""); setSubmittedSearch(""); setSubmittedGenre(""); setSubmittedStatus(""); setPage(1);
+              }}>limpar</button>
+            </div>
+          </form>
+
+          {error && <p className="library-error" role="alert">{error}</p>}
+          {loading ? <p className="library-feedback">abrindo seus livros…</p> : entries.length ? (
+            <div className="book-results" aria-live="polite">
+              {entries.map((entry) => (
+                <article className="book-result" key={entry.id}>
+                  {entry.book.cover_url ? (
+                    <img className="book-result__cover" src={entry.book.cover_url} alt={`Capa de ${entry.book.title}`} />
+                  ) : (
+                    <div className="book-result__cover book-result__cover--placeholder" aria-hidden="true">{entry.book.title.slice(0, 1)}</div>
+                  )}
+                  <div className="book-result__details">
+                    <h2>{entry.book.title}</h2>
+                    <p>{entry.book.author}</p>
+                    <div className="book-result__meta">
+                      {entry.book.genre && <span>{entry.book.genre}</span>}
+                      <span>{statusLabel(entry.status)}</span>
+                      {entry.book.total_pages && <span>{entry.pages_read} / {entry.book.total_pages} páginas</span>}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="library-empty-state" aria-live="polite">
+              <p className="library-empty-state__ornament" aria-hidden="true">✦</p>
+              <h2>{submittedSearch || submittedGenre || submittedStatus ? "Nenhum livro corresponde aos filtros." : "Sua estante ainda está vazia."}</h2>
+              <p>{submittedSearch || submittedGenre || submittedStatus ? "Tente outra busca ou remova algum filtro." : "Os livros que você adicionar aparecerão aqui."}</p>
+            </div>
+          )}
+
+          {(hasNext || hasPrevious) && (
+            <nav className="pagination-controls" aria-label="Páginas da biblioteca">
+              <button type="button" disabled={!hasPrevious || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}>anterior</button>
+              <span>página {page}</span>
+              <button type="button" disabled={!hasNext || loading} onClick={() => setPage((value) => value + 1)}>próxima</button>
+            </nav>
+          )}
+        </section>
+      )}
+      <button className="back-to-welcome" type="button" onClick={onReturn}>voltar à abertura</button>
       <footer className="library-footer">MYBOOKS <span>·</span> UM CAPÍTULO DE CADA VEZ</footer>
     </main>
   );

@@ -107,6 +107,41 @@ class MyBooksAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Book.objects.filter(title__iexact="Dune", author__iexact="Frank Herbert").count(), 1)
 
+    def test_catalog_searches_title_or_author_and_filters_genre(self):
+        other_book = Book.objects.create(
+            title="Foundation", author="Isaac Asimov", genre="Science Fiction", total_pages=255
+        )
+        response = self.client.get(reverse("book-list"), {"search": "asimov", "genre": "science"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["id"] for item in response.data["results"]], [other_book.pk])
+
+    def test_personal_library_search_and_status_filters_are_combined(self):
+        LibraryEntry.objects.create(
+            user=self.user,
+            book=self.book,
+            status=LibraryEntry.Status.WANT_TO_READ,
+        )
+        other_book = Book.objects.create(
+            title="Dune Messiah", author="Frank Herbert", genre="Science Fiction", total_pages=336
+        )
+        LibraryEntry.objects.create(
+            user=self.user,
+            book=other_book,
+            status=LibraryEntry.Status.READING,
+            pages_read=20,
+        )
+
+        response = self.client.get(
+            reverse("library-entry-list"),
+            {"search": "frank herbert", "genre": "science", "status": LibraryEntry.Status.READING},
+        )
+        invalid_status = self.client.get(reverse("library-entry-list"), {"status": "FINISHED"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["book"]["id"] for item in response.data["results"]], [other_book.pk])
+        self.assertEqual(invalid_status.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_registration_hashes_password(self):
         response = self.client.post(
             reverse("register"),
