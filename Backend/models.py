@@ -443,7 +443,7 @@ class SharedBookRemovalRequest(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["shared_book"],
-                condition=Q(status="PENDING") & Q(shared_book__isnull=False),
+                condition=Q(status="PENDING", shared_book__isnull=False),
                 name="unique_pending_shared_book_removal_request",
             ),
         ]
