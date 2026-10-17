@@ -6,6 +6,7 @@ from .views import (
     LibraryEntryViewSet,
     MailboxView,
     RegisterView,
+    ReadingStatsView,
     ReviewViewSet,
     SharedBookRemovalRequestViewSet,
     SharedLibraryBookViewSet,
@@ -30,5 +31,6 @@ urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("health/", HealthCheckView.as_view(), name="health"),
     path("mailbox/", MailboxView.as_view(), name="mailbox"),
+    path("reading-stats/", ReadingStatsView.as_view(), name="reading-stats"),
     path("", include(router.urls)),
 ]

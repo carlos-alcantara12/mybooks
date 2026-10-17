@@ -1,3 +1,5 @@
+from datetime import date, datetime, time, timedelta
+
 from django.db import transaction
 from django.db import connection
 from django.db.models import Q
@@ -12,6 +14,7 @@ from rest_framework.response import Response
 from .models import (
     Book,
     LibraryEntry,
+    ReadingActivity,
     Review,
     SharedBookRemovalRequest,
     SharedLibrary,
@@ -97,6 +100,65 @@ class HealthCheckView(APIView):
         return Response({"status": "ok", "database": "ok"})
 
 
+class ReadingStatsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        today = timezone.localdate()
+        daily_start = today - timedelta(days=6)
+        current_week = today - timedelta(days=today.weekday())
+        weekly_start = current_week - timedelta(weeks=7)
+        month_index = today.year * 12 + today.month - 1 - 5
+        monthly_start = date(month_index // 12, month_index % 12 + 1, 1)
+        start_date = min(daily_start, weekly_start, monthly_start)
+        start_datetime = timezone.make_aware(datetime.combine(start_date, time.min))
+
+        daily_totals = {}
+        weekly_totals = {}
+        monthly_totals = {}
+        activities = ReadingActivity.objects.filter(
+            user=request.user,
+            recorded_at__gte=start_datetime,
+        ).only("pages_read", "books_completed", "recorded_at")
+        for activity in activities:
+            local_date = timezone.localtime(activity.recorded_at).date()
+            totals = (activity.pages_read, activity.books_completed)
+            for bucket, key in (
+                (daily_totals, local_date),
+                (weekly_totals, local_date - timedelta(days=local_date.weekday())),
+                (monthly_totals, (local_date.year, local_date.month)),
+            ):
+                current = bucket.setdefault(key, [0, 0])
+                current[0] += totals[0]
+                current[1] += totals[1]
+
+        def bucket_row(label, key, values):
+            pages, books = values.get(key, (0, 0))
+            return {"label": label, "pages": pages, "books": books}
+
+        daily = [
+            bucket_row(day.strftime("%d/%m"), day, daily_totals)
+            for day in (daily_start + timedelta(days=offset) for offset in range(7))
+        ]
+        weekly = [
+            bucket_row(week.strftime("%d/%m"), week, weekly_totals)
+            for week in (weekly_start + timedelta(weeks=offset) for offset in range(8))
+        ]
+        month_dates = []
+        year, month = monthly_start.year, monthly_start.month
+        for _ in range(6):
+            month_dates.append((year, month))
+            if month == 12:
+                year, month = year + 1, 1
+            else:
+                month += 1
+        monthly = [
+            bucket_row(f"{month:02d}/{year}", (year, month), monthly_totals)
+            for year, month in month_dates
+        ]
+        return Response({"daily": daily, "weekly": weekly, "monthly": monthly})
+
+
 class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
@@ -126,6 +188,7 @@ class BookViewSet(viewsets.ModelViewSet):
 
 class LibraryEntryViewSet(viewsets.ModelViewSet):
     serializer_class = LibraryEntrySerializer
+
     def get_queryset(self):
         queryset = LibraryEntry.objects.filter(user=self.request.user).select_related("book")
         search = self.request.query_params.get("search", "").strip()
@@ -142,7 +205,31 @@ class LibraryEntryViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(status=reading_status)
         return queryset
     def perform_create(self, serializer):
-        serializer.save()
+        with transaction.atomic():
+            entry = serializer.save()
+            if entry.pages_read or entry.status == LibraryEntry.Status.READ:
+                ReadingActivity.objects.create(
+                    user=entry.user,
+                    book=entry.book,
+                    pages_read=entry.pages_read,
+                    books_completed=int(entry.status == LibraryEntry.Status.READ),
+                )
+
+    def perform_update(self, serializer):
+        previous = serializer.instance
+        previous_pages = previous.pages_read
+        previous_status = previous.status
+        with transaction.atomic():
+            entry = serializer.save()
+            pages_delta = max(0, entry.pages_read - previous_pages)
+            completed = int(previous_status != LibraryEntry.Status.READ and entry.status == LibraryEntry.Status.READ)
+            if pages_delta or completed:
+                ReadingActivity.objects.create(
+                    user=entry.user,
+                    book=entry.book,
+                    pages_read=pages_delta,
+                    books_completed=completed,
+                )
     def perform_destroy(self, instance):
         instance.delete()
 

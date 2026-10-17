@@ -115,6 +115,20 @@ Exemplo de criação:
 
 A resposta de livro inclui `id`, esses campos e `created_at` em formato ISO 8601.
 
+### Progresso de leitura
+
+`GET /api/reading-stats/` retorna os avanços registrados pela pessoa autenticada, agrupados por dia (últimos 7 dias), semana (últimas 8 semanas) e mês (últimos 6 meses). Cada período contém `label`, `pages` (páginas avançadas) e `books` (obras concluídas). O histórico começa a ser registrado a partir da aplicação da migração; atividades anteriores não podem ser reconstruídas a partir do progresso atual.
+
+Exemplo de resposta:
+
+```json
+{
+  "daily": [{"label": "17/10", "pages": 24, "books": 0}],
+  "weekly": [{"label": "12/10", "pages": 130, "books": 1}],
+  "monthly": [{"label": "10/2026", "pages": 250, "books": 2}]
+}
+```
+
 ### Biblioteca pessoal
 
 | Método | Rota | Ação |

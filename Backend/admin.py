@@ -3,6 +3,7 @@ from django.contrib.auth.admin import UserAdmin
 from .models import (
     Book,
     LibraryEntry,
+    ReadingActivity,
     Review,
     SharedBookRemovalRequest,
     SharedLibrary,
@@ -33,6 +34,12 @@ class LibraryEntryAdmin(admin.ModelAdmin):
 class ReviewAdmin(admin.ModelAdmin):
     list_display = ("user", "book", "rating", "reviewed_at")
     list_filter = ("rating",)
+
+@admin.register(ReadingActivity)
+class ReadingActivityAdmin(admin.ModelAdmin):
+    list_display = ("user", "book", "pages_read", "books_completed", "recorded_at")
+    list_filter = ("recorded_at",)
+    search_fields = ("user__username", "book__title")
 
 @admin.register(TrendingBook)
 class TrendingBookAdmin(admin.ModelAdmin):

@@ -148,6 +148,35 @@ class LibraryEntry(models.Model):
         return f"{self.book} ({self.get_status_display()}) — {self.user}"
 
 
+class ReadingActivity(models.Model):
+    """Append-only record of pages read and books completed by a user."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reading_activities",
+        verbose_name="usuário",
+    )
+    book = models.ForeignKey(
+        Book,
+        on_delete=models.CASCADE,
+        related_name="reading_activities",
+        verbose_name="livro",
+    )
+    pages_read = models.PositiveIntegerField("páginas avançadas", default=0)
+    books_completed = models.PositiveSmallIntegerField("livros concluídos", default=0)
+    recorded_at = models.DateTimeField("registrado em", default=timezone.now)
+
+    class Meta:
+        ordering = ["-recorded_at"]
+        indexes = [models.Index(fields=["user", "recorded_at"], name="reading_activity_user_date_idx")]
+        verbose_name = "atividade de leitura"
+        verbose_name_plural = "atividades de leitura"
+
+    def __str__(self):
+        return f"{self.user}: {self.pages_read} páginas em {self.book}"
+
+
 class SharedLibrary(models.Model):
     name = models.CharField("nome", max_length=120)
     owner = models.ForeignKey(

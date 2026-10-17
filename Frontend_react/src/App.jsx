@@ -315,6 +315,71 @@ async function catalogRequest(path, token, onToken, options = {}) {
   return data;
 }
 
+function ReadingChart({ title, description, items }) {
+  const maxPages = Math.max(1, ...items.map((item) => item.pages));
+  const maxBooks = Math.max(1, ...items.map((item) => item.books));
+  const pagesTotal = items.reduce((total, item) => total + item.pages, 0);
+  const booksTotal = items.reduce((total, item) => total + item.books, 0);
+
+  return (
+    <section className="reading-chart" aria-label={title}>
+      <div className="reading-chart__heading">
+        <div><h2>{title}</h2><p>{description}</p></div>
+        <div className="reading-chart__totals"><span>{pagesTotal} páginas</span><span>{booksTotal} livros</span></div>
+      </div>
+      <div className="reading-chart__legend"><span><i className="reading-chart__swatch reading-chart__swatch--pages" />Páginas</span><span><i className="reading-chart__swatch reading-chart__swatch--books" />Livros concluídos</span></div>
+      <div className="reading-chart__plot" role="list" aria-label={`Gráfico de ${title}`}>
+        {items.map((item, index) => (
+          <div className="reading-chart__column" role="listitem" key={`${item.label}-${index}`} aria-label={`${item.label}: ${item.pages} páginas avançadas e ${item.books} livros concluídos`}>
+            <div className="reading-chart__bars" aria-hidden="true">
+              <span className="reading-chart__bar reading-chart__bar--pages" style={{ height: `${item.pages ? Math.max(5, item.pages / maxPages * 100) : 0}%` }} />
+              <span className="reading-chart__bar reading-chart__bar--books" style={{ height: `${item.books ? Math.max(5, item.books / maxBooks * 100) : 0}%` }} />
+            </div>
+            <span className="reading-chart__label">{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ReadingProgressView({ accessToken, onToken }) {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    catalogRequest("/reading-stats/", accessToken, onToken)
+      .then((data) => { if (active) setStats(data); })
+      .catch((requestError) => { if (active) setError(requestError.message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [accessToken, onToken]);
+
+  return (
+    <section className="reading-progress-view explore-view" aria-labelledby="reading-progress-title">
+      <div className="explore-heading">
+        <div>
+          <p className="library-kicker">cada página conta</p>
+          <h1 id="reading-progress-title">Seu progresso de leitura.</h1>
+          <p className="explore-intro">Acompanhe as páginas avançadas e as obras concluídas ao longo do tempo.</p>
+        </div>
+      </div>
+      {error && <p className="library-error" role="alert">{error}</p>}
+      {loading ? <p className="library-feedback">reunindo suas leituras…</p> : stats ? (
+        <div className="reading-progress-grid">
+          <ReadingChart title="Por dia" description="Últimos 7 dias" items={stats.daily || []} />
+          <ReadingChart title="Por semana" description="Últimas 8 semanas" items={stats.weekly || []} />
+          <ReadingChart title="Por mês" description="Últimos 6 meses" items={stats.monthly || []} />
+        </div>
+      ) : <p className="library-feedback">Não foi possível carregar seu progresso.</p>}
+      <p className="reading-progress-note">Os gráficos contam avanços registrados a partir da ativação deste histórico.</p>
+    </section>
+  );
+}
+
 function CatalogExplorer({ accessToken, onToken }) {
   const [search, setSearch] = useState("");
   const [genre, setGenre] = useState("");
@@ -603,6 +668,7 @@ function LibraryLanding({ onReturn }) {
           {accessToken && <nav className="library-navigation" aria-label="Navegação principal">
             <button className={activeView === "library" ? "is-active" : ""} type="button" onClick={() => setActiveView("library")}>Minha biblioteca</button>
             <button className={activeView === "explore" ? "is-active" : ""} type="button" onClick={() => setActiveView("explore")}>Explorar obras</button>
+            <button className={activeView === "progress" ? "is-active" : ""} type="button" onClick={() => setActiveView("progress")}>Progresso</button>
           </nav>}
           {accessToken && <button className="library-text-button" type="button" onClick={signOut}>sair</button>}
         </div>
@@ -667,6 +733,8 @@ function LibraryLanding({ onReturn }) {
         </div>
       ) : activeView === "explore" ? (
         <CatalogExplorer accessToken={accessToken} onToken={setAccessToken} />
+      ) : activeView === "progress" ? (
+        <ReadingProgressView accessToken={accessToken} onToken={setAccessToken} />
       ) : (
         <section className="personal-library" aria-labelledby="library-title">
           <div className="personal-library__heading">
