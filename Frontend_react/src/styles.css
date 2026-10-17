@@ -233,6 +233,24 @@ button { color: inherit; }
 .filter-actions { display: flex; align-items: center; gap: 14px; }
 .filter-actions .library-primary-button { white-space: nowrap; }
 .book-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; margin-top: 24px; }
+.bookshelf { position: relative; width: 100%; margin: 34px auto 0; padding: 27px clamp(12px, 3vw, 34px) 22px; border-right: 13px solid #65442f; border-left: 13px solid #65442f; background: linear-gradient(90deg, rgba(40, 25, 15, .29), transparent 5%, transparent 95%, rgba(40, 25, 15, .29)), linear-gradient(180deg, #493628 0%, #382a21 100%); box-shadow: inset 0 0 28px rgba(24, 15, 9, .52), 0 16px 28px rgba(52, 36, 23, .18); }
+.bookshelf::before, .bookshelf::after { position: absolute; right: -13px; left: -13px; height: 12px; background: linear-gradient(180deg, #b08a61, #80583a 42%, #65442f); content: ""; }
+.bookshelf::before { top: 0; box-shadow: 0 3px 7px rgba(22, 13, 8, .38); }
+.bookshelf::after { bottom: 0; }
+.bookshelf-row { position: relative; z-index: 1; margin: 0 auto 22px; perspective: 900px; }
+.bookshelf-books { display: flex; min-height: 222px; align-items: flex-end; justify-content: center; gap: clamp(4px, .8vw, 10px); overflow-x: auto; padding: 0 8px; scrollbar-color: rgba(211, 180, 141, .48) transparent; scrollbar-width: thin; }
+.shelf-volume { position: relative; display: flex; width: clamp(35px, 5.2vw, 62px); height: var(--book-height, 180px); flex: 0 0 clamp(35px, 5.2vw, 62px); flex-direction: column; align-items: center; justify-content: space-between; overflow: hidden; padding: 12px 6px 9px; border: 1px solid rgba(31, 20, 13, .72); border-radius: 4px 4px 1px 1px; background: linear-gradient(90deg, rgba(29, 18, 12, .58), transparent 13%, rgba(255, 231, 187, .13) 19%, transparent 31%, transparent 78%, rgba(24, 15, 10, .26) 100%), linear-gradient(180deg, color-mix(in srgb, var(--spine-color) 78%, #f3d5a6), var(--spine-color) 28%, color-mix(in srgb, var(--spine-color) 78%, #201711)); color: #f4e5ca; box-shadow: inset 3px 0 5px rgba(255, 235, 199, .13), inset -3px 0 5px rgba(17, 11, 8, .28), 2px 0 2px rgba(255, 243, 220, .12), 3px 5px 7px rgba(12, 8, 5, .29); cursor: pointer; transform-origin: center bottom; transition: transform .32s cubic-bezier(.2, .75, .25, 1), filter .32s ease, box-shadow .32s ease; }
+.shelf-volume::before { position: absolute; inset: 8px 4px; border: 1px solid rgba(224, 192, 139, .37); border-right-color: rgba(224, 192, 139, .13); border-left-color: rgba(224, 192, 139, .13); content: ""; pointer-events: none; }
+.shelf-volume::after { position: absolute; top: 14px; right: 5px; left: 5px; height: 2px; background: rgba(225, 193, 139, .43); box-shadow: 0 2px 0 rgba(35, 23, 15, .26); content: ""; pointer-events: none; }
+.shelf-volume:hover, .shelf-volume:focus-visible, .shelf-volume.is-pulled { z-index: 3; filter: brightness(1.14); box-shadow: inset 3px 0 5px rgba(255, 235, 199, .2), inset -3px 0 5px rgba(17, 11, 8, .2), 8px 12px 16px rgba(10, 6, 4, .43); transform: translateY(-15px) rotateZ(-2deg) rotateX(-8deg); }
+.shelf-volume:focus-visible { outline: 2px solid #e4c18e; outline-offset: 4px; }
+.shelf-volume__top, .shelf-volume__bottom { position: relative; z-index: 1; color: #d5b77f; font-size: .66rem; line-height: 1; }
+.shelf-volume__title { position: relative; z-index: 1; display: -webkit-box; max-height: 72%; overflow: hidden; font-size: clamp(.68rem, 1.05vw, .91rem); font-weight: 500; line-height: 1.05; text-align: center; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(20, 12, 8, .55); writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
+.shelf-volume__author { position: relative; z-index: 1; max-width: 100%; overflow: hidden; color: rgba(244, 229, 202, .78); font-family: Georgia, serif; font-size: .48rem; text-overflow: ellipsis; white-space: nowrap; }
+.bookshelf-plank { position: relative; z-index: 2; height: 19px; margin: -1px -8px 0; border: 1px solid #573922; border-radius: 2px; background: repeating-linear-gradient(2deg, transparent 0 5px, rgba(67, 38, 19, .14) 6px, transparent 8px), linear-gradient(180deg, #bd9464 0%, #986d45 28%, #805638 75%, #67452f 100%); box-shadow: inset 0 2px 2px rgba(255, 228, 187, .3), inset 0 -3px 4px rgba(43, 25, 13, .25), 0 7px 9px rgba(15, 9, 5, .42); }
+.bookshelf-plank::before { position: absolute; top: 3px; right: 0; left: 0; height: 1px; background: rgba(246, 216, 172, .28); content: ""; }
+.bookshelf-plank span { position: absolute; top: 7px; left: 21%; width: 3px; height: 3px; border: 1px solid rgba(57, 37, 23, .48); border-radius: 50%; box-shadow: 0 0 1px rgba(255, 228, 187, .4); }
+.bookshelf-hint { margin: 8px 0 0; color: rgba(237, 221, 198, .72); font-size: .86rem; font-style: italic; text-align: center; }
 .book-result { display: flex; min-width: 0; gap: 16px; padding: 14px; border: 1px solid rgba(117, 81, 56, .16); background: rgba(255, 252, 246, .58); box-shadow: 0 5px 16px rgba(65, 48, 32, .045); }
 .book-result__cover { width: 68px; height: 98px; flex: 0 0 68px; border: 1px solid rgba(75, 54, 37, .2); object-fit: cover; box-shadow: 2px 3px 8px rgba(45, 32, 22, .14); }
 .book-result__cover--placeholder { display: grid; place-items: center; background: linear-gradient(145deg, #867053, #594b3b); color: #f4e9d3; font-size: 2rem; }
@@ -372,6 +390,13 @@ button { color: inherit; }
   .filter-search { grid-column: 1 / -1; }
   .filter-actions { grid-column: 1 / -1; justify-content: space-between; }
   .book-results { grid-template-columns: 1fr; }
+  .bookshelf { margin-top: 27px; padding: 21px 8px 16px; border-right-width: 8px; border-left-width: 8px; }
+  .bookshelf::before, .bookshelf::after { right: -8px; left: -8px; }
+  .bookshelf-books { min-height: 184px; justify-content: flex-start; gap: 4px; padding: 0 3px; }
+  .shelf-volume { height: calc(var(--book-height, 180px) * .78); flex-basis: 35px; padding: 10px 4px 7px; }
+  .shelf-volume:hover, .shelf-volume:focus-visible, .shelf-volume.is-pulled { transform: translateY(-11px) rotateZ(-2deg) rotateX(-6deg); }
+  .bookshelf-plank { margin-right: -3px; margin-left: -3px; }
+  .bookshelf-hint { font-size: .76rem; }
 }
 
 @media (max-width: 390px) {

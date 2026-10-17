@@ -130,6 +130,14 @@ function statusLabel(status) {
   }[status] || status;
 }
 
+function groupIntoShelves(items, shelfSize = 6) {
+  const shelves = [];
+  for (let index = 0; index < items.length; index += shelfSize) {
+    shelves.push(items.slice(index, index + shelfSize));
+  }
+  return shelves;
+}
+
 async function catalogRequest(path, token, onToken, options = {}) {
   const send = (activeToken) => fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -344,6 +352,7 @@ function LibraryLanding({ onReturn }) {
   const [showPassword, setShowPassword] = useState(false);
   const [creatingAccount, setCreatingAccount] = useState(false);
   const [entries, setEntries] = useState([]);
+  const [pulledBookId, setPulledBookId] = useState(null);
   const [search, setSearch] = useState("");
   const [genre, setGenre] = useState("");
   const [status, setStatus] = useState("");
@@ -550,25 +559,39 @@ function LibraryLanding({ onReturn }) {
 
           {error && <p className="library-error" role="alert">{error}</p>}
           {loading ? <p className="library-feedback">abrindo seus livros…</p> : entries.length ? (
-            <div className="book-results" aria-live="polite">
-              {entries.map((entry) => (
-                <article className="book-result" key={entry.id}>
-                  {entry.book.cover_url ? (
-                    <img className="book-result__cover" src={entry.book.cover_url} alt={`Capa de ${entry.book.title}`} />
-                  ) : (
-                    <div className="book-result__cover book-result__cover--placeholder" aria-hidden="true">{entry.book.title.slice(0, 1)}</div>
-                  )}
-                  <div className="book-result__details">
-                    <h2>{entry.book.title}</h2>
-                    <p>{entry.book.author}</p>
-                    <div className="book-result__meta">
-                      {entry.book.genre && <span>{entry.book.genre}</span>}
-                      <span>{statusLabel(entry.status)}</span>
-                      {entry.book.total_pages && <span>{entry.pages_read} / {entry.book.total_pages} páginas</span>}
-                    </div>
+            <div className="bookshelf" aria-label="Estante da sua biblioteca">
+              {groupIntoShelves(entries).map((shelf, shelfIndex) => (
+                <section className="bookshelf-row" key={`shelf-${shelfIndex}`} aria-label={`Prateleira ${shelfIndex + 1}`}>
+                  <div className="bookshelf-books">
+                    {shelf.map((entry, bookIndex) => {
+                      const palette = ["#784638", "#455c4c", "#a07645", "#584653", "#384e63", "#8a654b"];
+                      const color = palette[(shelfIndex * 3 + bookIndex) % palette.length];
+                      const height = 166 + ((shelfIndex * 7 + bookIndex * 13) % 5) * 9;
+                      const isPulled = pulledBookId === entry.id;
+                      return (
+                        <button
+                          className={`shelf-volume${isPulled ? " is-pulled" : ""}`}
+                          key={entry.id}
+                          type="button"
+                          aria-pressed={isPulled}
+                          aria-label={`${entry.book.title}, de ${entry.book.author}. ${statusLabel(entry.status)}. ${isPulled ? "Devolver ? estante" : "Retirar levemente da estante"}.`}
+                          style={{ "--spine-color": color, "--book-height": `${height}px` }}
+                          onClick={() => setPulledBookId(isPulled ? null : entry.id)}
+                        >
+                          <span className="shelf-volume__top" aria-hidden="true" />
+                          <span className="shelf-volume__title">{entry.book.title}</span>
+                          <span className="shelf-volume__author">{entry.book.author}</span>
+                          <span className="shelf-volume__bottom" aria-hidden="true">?</span>
+                        </button>
+                      );
+                    })}
                   </div>
-                </article>
+                  <div className="bookshelf-plank" aria-hidden="true"><span /></div>
+                </section>
               ))}
+              <p className="bookshelf-hint" aria-live="polite">
+                {pulledBookId ? "Livro inclinado para fora. Toque novamente para devolv?-lo ? estante." : "Passe o cursor ou toque em um livro para retir?-lo levemente da estante."}
+              </p>
             </div>
           ) : (
             <div className="library-empty-state" aria-live="polite">
