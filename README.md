@@ -4,7 +4,7 @@ O **MyBooks** é uma aplicação web para organizar livros e acompanhar a vida d
 
 Além de ser útil no dia a dia, o projeto serve como exemplo prático de desenvolvimento de software: reúne modelagem de dados, API REST, autenticação, regras de negócio, validação de informações e uma base para a futura construção de uma interface web.
 
-> **Estado do projeto nesta versão:** o backend Django e sua API oferecem biblioteca pessoal e compartilhada, caixa interna para convites e pedidos de remoção, categorias de leitura, gênero, total de páginas e progresso individual. A pasta `Frontend_react` está vazia nesta cópia. Timer, gráficos e a experiência visual descrita abaixo ainda precisam ser implementados.
+> **Estado do projeto nesta versão:** o backend Django oferece bibliotecas pessoais e compartilhadas, correio interno, convites, pedidos de remoção, avaliações e progresso por páginas. O frontend React começou com a tela de entrada animada e uma transição para a área da biblioteca. Timer, gráficos, estante interativa e integração completa com a API ainda precisam ser implementados.
 
 ---
 
@@ -108,7 +108,7 @@ Um fluxo previsto de uso seria:
 5. Ao atingir o total de páginas, marca o livro como **Lido** e pode registrar uma avaliação de 1 a 5 estrelas e um comentário.
 6. Se desejar, aceita um convite recebido no correio interno e participa de uma biblioteca compartilhada.
 
-Esses fluxos dependem da implementação do frontend, ainda não incluído nesta cópia. A estante animada, a abertura dos livros e a tela de entrada literária fazem parte da experiência planejada.
+A tela de entrada já apresenta a escrita animada de MyBooks, uma frase literária variável e a ação para prosseguir. As demais ações do fluxo dependem das próximas telas do frontend, incluindo estante animada, abertura dos livros e integração com a API.
 
 ## 4. Regras de negócio e proteção dos dados
 
@@ -136,8 +136,8 @@ O backend valida que o progresso não ultrapasse o total cadastrado e exige igua
 | Django REST Framework | Construção da API REST e serialização dos dados |
 | Simple JWT | Autenticação por tokens de acesso e renovação |
 | SQLite | Banco de dados configurado para desenvolvimento local |
-| React, HTML, CSS e JavaScript | Tecnologias previstas para a interface web; frontend ainda não presente nesta cópia |
-| Biblioteca de animação para frontend | A definir durante a implementação da estante, dos livros e da tela de entrada |
+| React, HTML, CSS e JavaScript | Interface web em desenvolvimento em `Frontend_react/` |
+| Animações CSS | Escrita da marca, entrada da frase, transição para a biblioteca e ajustes para movimento reduzido |
 
 ## 6. Arquitetura do projeto
 
@@ -155,7 +155,9 @@ Mybooks/
 │   └── requirements.txt      # Dependências Python
 ├── Docs/
 │   └── tech_spec.txt         # Especificação funcional e regras do projeto
-├── Frontend_react/           # Diretório reservado ao frontend React
+├── Frontend_react/           # Aplicação React com Vite
+│   ├── src/App.jsx           # Tela de entrada e página inicial da biblioteca
+│   └── src/styles.css        # Identidade visual, animações e responsividade
 └── README.md                 # Documentação geral do projeto
 ```
 
@@ -387,14 +389,14 @@ Possíveis melhorias futuras, a serem priorizadas conforme o objetivo do projeto
 3. **Progresso e timer:** registrar sessões, metas de tempo e históricos necessários aos resumos diários, semanais e mensais.
 4. **Frontend React:** implementar as categorias, gráficos, correio visual e telas da biblioteca.
 5. **Estante animada:** criar a estante de madeira, interação com livros, visualização aberta com resumo e suporte a capas.
-6. **Tela de entrada:** animar a escrita de MyBooks e apresentar uma frase literária variável com autoria e ação para prosseguir.
+6. **Tela de entrada:** ✅ escrita animada de MyBooks, frase literária variável com autoria e ação para prosseguir.
 7. **Busca e filtros:** permitir pesquisar por título ou autor e filtrar a biblioteca.
 8. **Integração com catálogo externo:** avaliar uma fonte apropriada para metadados e capas, respeitando os termos de uso.
 9. **Produção e qualidade:** revisar testes, acessibilidade, banco de dados, segurança, deploy, observabilidade e backups.
 
 ## 12. Escopo atual e próximos passos
 
-Esta cópia contém a base do backend: modelos, serializadores, views, rotas, autenticação JWT, integração com o Django Admin, biblioteca compartilhada, caixa interna, convites e pedidos de remoção com autorização. O diretório `Frontend_react` está vazio. Timer, gráficos e experiência visual animada são requisitos definidos para as próximas etapas.
+Esta cópia contém a base do backend e o início do frontend React. A tela de entrada já está implementada; após prosseguir, o usuário chega à página inicial da biblioteca, ainda em construção. Timer, gráficos, estante interativa, telas de correio e integração da interface com as APIs continuam como próximas etapas.
 
 Uma sequência de trabalho recomendada é:
 
