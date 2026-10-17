@@ -47,6 +47,12 @@ A resposta `200` contém `access` e `refresh`. Use `access` nas chamadas autenti
 
 A resposta `200` contém um novo `access`.
 
+Cadastro, obtenção e renovação de tokens são limitados a 10 requisições por minuto por cliente; exceder o limite retorna `429`.
+
+## Saúde da aplicação
+
+`GET /api/health/` não exige autenticação. A rota executa uma consulta simples ao banco e retorna `200` com `{"status":"ok","database":"ok"}` quando está disponível, ou `503` com estado não saudável quando a consulta falha. Use-a em verificações de disponibilidade, sem expor detalhes ou credenciais do banco.
+
 ## Permissões
 
 | Recurso | Leitura | Criação | Edição e remoção |

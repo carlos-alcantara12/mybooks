@@ -1,7 +1,9 @@
 from django.db import transaction
+from django.db import connection
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import generics, mixins, permissions, status, viewsets
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -81,9 +83,25 @@ class MailboxView(APIView):
         return Response({"unread_count": unread_count, "results": letters})
 
 
+class HealthCheckView(APIView):
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+        except Exception:
+            return Response({"status": "unhealthy", "database": "unavailable"}, status=503)
+        return Response({"status": "ok", "database": "ok"})
+
+
 class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
 
 class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.all()

@@ -23,6 +23,14 @@ class MyBooksAPITests(APITestCase):
         self.book = Book.objects.create(title="Dune", author="Frank Herbert", total_pages=412)
         self.client.force_authenticate(user=self.user)
 
+    def test_health_endpoint_is_public_and_checks_database(self):
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get(reverse("health"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {"status": "ok", "database": "ok"})
+
     def test_library_and_reviews_require_authentication(self):
         self.client.force_authenticate(user=None)
 

@@ -25,6 +25,33 @@ Com o ambiente virtual ativo e `DJANGO_DEBUG=true`, execute `python manage.py te
 
 Em produção, `DEBUG` fica desativado por padrão, PostgreSQL é obrigatório, segredo e hosts são exigidos, redirecionamento HTTPS e cookies seguros ficam ativos por padrão. HSTS começa desativado; habilite-o depois de confirmar HTTPS para o domínio. Configure backups do banco e mantenha segredos no gerenciador de segredos do provedor, não em arquivos versionados.
 
+### Imagens Docker
+
+As imagens podem ser construídas na raiz do repositório:
+
+```powershell
+docker build -f Backend/Dockerfile -t mybooks-backend Backend
+docker build -f Frontend_react/Dockerfile -t mybooks-frontend Frontend_react
+```
+
+Configure o container do backend com as variáveis de produção do `.env.example`. A imagem coleta os arquivos estáticos ao iniciar e executa Gunicorn como usuário sem privilégios. Faça as migrações em uma execução separada antes de atualizar a aplicação:
+
+```powershell
+docker run --rm --env-file Backend/.env mybooks-backend python manage.py migrate
+```
+
+O Nginx do frontend escuta na porta `8080` e encaminha `/api/` e `/static/` para um serviço chamado `backend` na mesma rede Docker. Configure o proxy TLS público à frente do frontend. Só habilite `DJANGO_TRUST_X_FORWARDED_PROTO=true` quando esse proxy confiável substituir os headers encaminhados recebidos do cliente.
+
+### Saúde, logs e backups
+
+- `GET /api/health/` não exige autenticação e verifica a conexão com o banco; retorna `200` quando está saudável e `503` quando o banco não responde. A imagem do backend usa essa rota no health check.
+- Cadastro e obtenção/renovação de tokens têm limite padrão de 10 requisições por minuto por cliente. O cache padrão do Django é local ao processo; em produção com vários workers ou réplicas, configure um cache compartilhado para aplicar o limite de forma consistente. Monitore respostas `429`.
+- O Django escreve logs no console, prontos para coleta pelo ambiente de execução. Configure retenção, busca e alertas no provedor de hospedagem.
+- Gere um backup PostgreSQL com `python scripts/backup_postgres.py` dentro de `Backend/`. O comando requer `pg_dump` instalado e as variáveis de banco configuradas; grava em `Backend/backups/` por padrão. Agende a execução fora da aplicação, copie os arquivos para armazenamento externo protegido e defina retenção.
+- Antes de depender dos backups, teste a restauração em um banco separado com `pg_restore`; o script não agenda, criptografa, rotaciona nem restaura backups.
+
+O workflow `.github/workflows/quality.yml` roda verificações do Django, detecta migrações pendentes, executa os testes e constrói o frontend em pushes e pull requests. O deploy de infraestrutura, TLS, agendamento/armazenamento dos backups e exercícios de restauração dependem do ambiente escolhido.
+
 ## Autenticação e API
 
 Referência detalhada de endpoints, payloads, permissões e erros: [API.md](API.md).

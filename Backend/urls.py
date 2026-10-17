@@ -2,6 +2,7 @@ from rest_framework.routers import DefaultRouter
 from django.urls import include, path
 from .views import (
     BookViewSet,
+    HealthCheckView,
     LibraryEntryViewSet,
     MailboxView,
     RegisterView,
@@ -27,6 +28,7 @@ router.register("shared-removal-requests", SharedBookRemovalRequestViewSet, base
 
 urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
+    path("health/", HealthCheckView.as_view(), name="health"),
     path("mailbox/", MailboxView.as_view(), name="mailbox"),
     path("", include(router.urls)),
 ]

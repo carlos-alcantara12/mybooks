@@ -125,7 +125,7 @@ O backend atual aplica regras importantes para manter a consistência:
 
 O backend valida que o progresso não ultrapasse o total cadastrado e exige igualdade entre páginas lidas e total para marcar um livro como **Lido**. O catálogo também impede alterações no total que invalidem progresso registrado.
 
-**Observação de segurança:** a configuração incluída é apropriada para desenvolvimento local, não para publicação direta em produção. Antes de disponibilizar o sistema publicamente, configure uma chave secreta forte por variável de ambiente, desative o modo de depuração, defina os hosts permitidos, escolha e configure um banco de dados de produção e revise HTTPS, CORS/CSRF conforme a arquitetura, backups, logs e políticas de acesso.
+**Produção:** o backend exige chave secreta e hosts por ambiente, PostgreSQL com SSL, HTTPS e cookies seguros por padrão quando `DEBUG` está desativado. A configuração inclui health check, limite de requisições de autenticação, logs no console, suporte a arquivos estáticos, imagens Docker e um script de backup PostgreSQL. Veja instruções e limites operacionais em [Backend/README.md](Backend/README.md). TLS público, monitoramento, agendamento e retenção de backups, além de testes periódicos de restauração, ainda precisam ser configurados no provedor escolhido.
 
 ## 5. Tecnologias utilizadas
 
@@ -393,6 +393,12 @@ Possíveis melhorias futuras, a serem priorizadas conforme o objetivo do projeto
 7. **Busca e filtros:** ✅ pesquisa por título/autor e filtros por gênero e categoria na biblioteca pessoal.
 8. **Integração com catálogo externo:** avaliar uma fonte apropriada para metadados e capas, respeitando os termos de uso.
 9. **Produção e qualidade:** revisar testes, acessibilidade, banco de dados, segurança, deploy, observabilidade e backups.
+
+### Etapa 9 — base de produção e qualidade
+
+Implementado nesta etapa: workflow de CI para verificações, migrações, testes do backend e build do frontend; endpoint de saúde com verificação do banco; limitação de tentativas nos endpoints de autenticação; imagens Docker para backend e frontend; logs no console; headers de segurança e foco visível na interface; e script de backup PostgreSQL. A configuração de produção mantém segredos fora do repositório e usa PostgreSQL, HTTPS e cookies seguros.
+
+Consulte [Backend/README.md](Backend/README.md#produ%C3%A7%C3%A3o) para instruções de execução. A publicação real ainda depende de configurar domínio e TLS, segredos no provedor, coleta de logs/alertas, agendamento e retenção de backups, e validar restaurações.
 
 ## 12. Escopo atual e próximos passos
 
