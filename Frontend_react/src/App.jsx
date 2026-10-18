@@ -175,6 +175,10 @@ function WelcomeScreen({ onContinue }) {
           </svg>
         </div>
 
+        <p className="welcome-description">
+          Organize sua biblioteca, acompanhe seu progresso e descubra novas obras.
+        </p>
+
         <blockquote className="literary-quote" key={quote.text}>
           <span className="quote-mark" aria-hidden="true">“</span>
           <p>{quote.text}</p>

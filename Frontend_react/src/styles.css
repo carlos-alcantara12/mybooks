@@ -160,20 +160,28 @@ button { color: inherit; }
 .brand-flourish path:first-child { stroke-dasharray: 350; stroke-dashoffset: 350; animation: draw-flourish 1.4s 1s ease forwards; }
 .brand-flourish path:last-child { fill: #9a7150; stroke-width: .55; opacity: 0; animation: petal-appear .45s 2s ease forwards; }
 
+.welcome-description {
+  width: min(100%, 570px);
+  margin: 12px 0 0;
+  color: #5f5548;
+  font-size: clamp(1.08rem, 2.1vw, 1.28rem);
+  line-height: 1.4;
+}
+
 .literary-quote {
   position: relative;
   width: min(100%, 560px);
-  margin: clamp(32px, 6vh, 58px) 0 0;
+  margin: clamp(22px, 3.5vh, 34px) 0 0;
   animation: quote-appear .95s .8s both;
 }
 .literary-quote p {
   margin: 0;
   color: #51473d;
-  font-size: clamp(1.42rem, 3.7vw, 2rem);
+  font-size: clamp(1.12rem, 2.7vw, 1.42rem);
   line-height: 1.35;
   font-weight: 500;
 }
-.literary-quote footer { margin-top: 14px; color: var(--muted-ink); font-size: 1.05rem; letter-spacing: .025em; }
+.literary-quote footer { margin-top: 9px; color: var(--muted-ink); font-size: .92rem; letter-spacing: .025em; }
 .literary-quote cite { font-style: normal; }
 .quote-mark {
   position: absolute;
@@ -662,9 +670,10 @@ button { color: inherit; }
   .welcome-eyebrow { font-size: .65rem; letter-spacing: .2em; }
   .brand-lockup { width: 100%; }
   .brand-name__letters { font-size: 108px; letter-spacing: 4px; }
-  .literary-quote { margin-top: 34px; }
-  .literary-quote p { font-size: clamp(1.35rem, 6vw, 1.7rem); }
-  .literary-quote footer { font-size: .92rem; }
+  .welcome-description { margin-top: 10px; font-size: 1.08rem; }
+  .literary-quote { margin-top: 20px; }
+  .literary-quote p { font-size: clamp(1.1rem, 4.8vw, 1.35rem); }
+  .literary-quote footer { font-size: .84rem; }
   .quote-mark { left: -.22em; }
   .enter-prompt { margin-top: 42px; gap: 8px; padding: 12px 14px; font-size: .85rem; }
   .welcome-note { right: 20px; bottom: 22px; left: 20px; font-size: .68rem; }
