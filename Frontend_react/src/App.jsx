@@ -331,10 +331,13 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
   return (
     <div className="book-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="book-dialog" role="dialog" aria-modal="true" aria-labelledby="book-dialog-title">
-        <button className="book-dialog__close" type="button" onClick={onClose} aria-label="Fechar detalhes do livro">×</button>
+        <button className="book-dialog__close" type="button" onClick={onClose} aria-label="Fechar livro e voltar à estante">×</button>
         <div className="book-dialog__book-open">
           <div className="book-dialog__cover-page">
             {book.cover_url ? <img src={book.cover_url} alt={`Capa de ${book.title}`} onError={(event) => { event.currentTarget.hidden = true; }} /> : <div className="book-dialog__cover-fallback">{book.title}</div>}
+          </div>
+          <div className="book-dialog__page-flips" aria-hidden="true">
+            {[0, 1, 2].map((page) => <span key={page} style={{ "--page-index": page }} />)}
           </div>
           <div className="book-dialog__content-page">
             <p className="book-dialog__eyebrow">sua obra</p>
@@ -1209,7 +1212,7 @@ function LibraryLanding({ onReturn }) {
                       const isPulled = pulledBookId === entry.id;
                       return (
                         <button
-                          className={`shelf-volume${entry.book.cover_url ? " has-cover" : ""}${isPulled ? " is-pulled" : ""}`}
+                          className={`shelf-volume${isPulled ? " is-pulled" : ""}`}
                           key={entry.id}
                           type="button"
                           aria-haspopup="dialog"
@@ -1217,7 +1220,6 @@ function LibraryLanding({ onReturn }) {
                           style={{ "--spine-color": color, "--book-height": `${height}px`, "--book-index": bookIndex }}
                           onClick={() => { setPulledBookId(entry.id); setOpenedEntry(entry); }}
                         >
-                          {entry.book.cover_url && <img className="shelf-volume__cover" src={entry.book.cover_url} alt="" aria-hidden="true" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.hidden = true; event.currentTarget.parentElement.classList.remove("has-cover"); }} />}
                           <span className="shelf-volume__top" aria-hidden="true" />
                           <span className="shelf-volume__title">{entry.book.title}</span>
                           <span className="shelf-volume__author">{entry.book.author}</span>
@@ -1230,7 +1232,7 @@ function LibraryLanding({ onReturn }) {
                 </section>
               ))}
               <p className="bookshelf-hint" aria-live="polite">
-                {pulledBookId ? "Livro aberto para você consultar os detalhes." : "Passe o cursor para retirar um livro; clique para abri-lo."}
+                {pulledBookId ? "Livro aberto para você consultar os detalhes." : "Passe o cursor sobre a lombada para incliná-la; clique para abrir e folhear."}
               </p>
             </div>
           ) : (
