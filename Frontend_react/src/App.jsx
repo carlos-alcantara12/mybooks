@@ -21,14 +21,62 @@ const quotes = [
     work: "Navegar é preciso",
     author: "Fernando Pessoa",
   },
+  {
+    text: "Tenho em mim todos os sonhos do mundo.",
+    work: "Tabacaria",
+    author: "Álvaro de Campos",
+  },
+  {
+    text: "Ao vencedor, as batatas!",
+    work: "Quincas Borba",
+    author: "Machado de Assis",
+  },
+  {
+    text: "Para ser grande, sê inteiro: nada teu exagera ou exclui.",
+    work: "Odes",
+    author: "Ricardo Reis",
+  },
+  {
+    text: "Põe quanto és no mínimo que fazes.",
+    work: "Odes",
+    author: "Ricardo Reis",
+  },
+  {
+    text: "O mar salgado, quanto do teu sal são lágrimas de Portugal!",
+    work: "Mar Português",
+    author: "Fernando Pessoa",
+  },
+  {
+    text: "Quem quer passar além do Bojador tem que passar além da dor.",
+    work: "Mar Português",
+    author: "Fernando Pessoa",
+  },
+  {
+    text: "Deus ao mar o perigo e o abismo deu, mas nele é que espelhou o céu.",
+    work: "Mar Português",
+    author: "Fernando Pessoa",
+  },
 ];
 
 const LAST_QUOTE_KEY = "mybooks:last-welcome-quote";
+const SEEN_QUOTES_KEY = "mybooks:seen-welcome-quotes";
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 
+function getSeenQuotes() {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(SEEN_QUOTES_KEY) || "[]");
+    const seen = Array.isArray(stored) ? stored : [];
+    const lastQuote = window.localStorage.getItem(LAST_QUOTE_KEY);
+    return lastQuote && !seen.includes(lastQuote) ? [...seen, lastQuote] : seen;
+  } catch {
+    return [];
+  }
+}
+
 function chooseQuote() {
-  const lastQuote = window.localStorage.getItem(LAST_QUOTE_KEY);
-  const choices = quotes.filter((quote) => quote.text !== lastQuote);
+  const seen = getSeenQuotes();
+  const unseen = quotes.filter((quote) => !seen.includes(quote.text));
+  const choices = unseen.length ? unseen : quotes;
   return choices[Math.floor(Math.random() * choices.length)];
 }
 
@@ -36,6 +84,12 @@ function WelcomeScreen({ onContinue }) {
   const [quote] = useState(chooseQuote);
 
   useEffect(() => {
+    const seen = getSeenQuotes();
+    const updatedSeen = seen.includes(quote.text) ? seen : [...seen, quote.text];
+    window.localStorage.setItem(
+      SEEN_QUOTES_KEY,
+      JSON.stringify(updatedSeen.length >= quotes.length ? [quote.text] : updatedSeen),
+    );
     window.localStorage.setItem(LAST_QUOTE_KEY, quote.text);
   }, [quote]);
 
