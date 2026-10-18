@@ -515,6 +515,9 @@ button { color: inherit; }
 @keyframes quote-appear { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes arrow-drift { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(3px); } }
 @keyframes library-arrive { from { opacity: 0; transform: scale(1.01); } to { opacity: 1; transform: scale(1); } }
+@keyframes view-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes view-heading-enter { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes shelf-book-arrive { from { opacity: 0; } to { opacity: 1; } }
 @keyframes card-arrive { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes loading-spin { to { transform: rotate(360deg); } }
 @keyframes book-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
@@ -536,6 +539,20 @@ button { color: inherit; }
 .library-navigation button { border-radius: var(--radius-control); }
 .library-error, .explore-error, .book-dialog__error { color: var(--danger); }
 .catalog-feedback.is-success { color: var(--success); }
+
+/* Motion gives each area a gentle entrance while keeping book interactions responsive. */
+.personal-library, .explore-view { animation: view-enter .48s cubic-bezier(.2, .7, .2, 1) both; }
+.personal-library__heading, .explore-heading { animation: view-heading-enter .46s cubic-bezier(.2, .7, .2, 1) both; }
+.bookshelf-books .shelf-volume { animation: shelf-book-arrive .38s ease both; animation-delay: calc(var(--book-index, 0) * 32ms); }
+.shared-form-card { animation: card-arrive .46s cubic-bezier(.2, .7, .2, 1) both; }
+.shared-form-card:nth-child(2) { animation-delay: 70ms; }
+.shared-library-tabs button { transition: transform var(--motion-ui), border-color var(--motion-ui), background var(--motion-ui), box-shadow var(--motion-ui); }
+.shared-library-tabs button:hover { transform: translateY(-2px); }
+.reading-summary-card { transition: transform var(--motion-ui), box-shadow var(--motion-ui); }
+.reading-summary-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-raised); }
+.pagination-controls button { transition: transform var(--motion-ui), background var(--motion-ui), border-color var(--motion-ui); }
+.pagination-controls button:hover:not(:disabled) { transform: translateY(-1px); background: #fffaf2; border-color: var(--accent); }
+.library-primary-button:active:not(:disabled), .catalog-add-button:active:not(:disabled), .shared-mailbox-button:active { transform: scale(.98); }
 
 @media (min-width: 601px) and (max-width: 800px) {
   .library-landing.has-navigation { padding: 20px 28px 106px; }
@@ -658,5 +675,5 @@ button { color: inherit; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0ms !important; }
 }

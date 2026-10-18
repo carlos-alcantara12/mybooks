@@ -1111,7 +1111,7 @@ function LibraryLanding({ onReturn }) {
                           type="button"
                           aria-haspopup="dialog"
                           aria-label={`Abrir ${entry.book.title}, de ${entry.book.author}. ${statusLabel(entry.status)}.`}
-                          style={{ "--spine-color": color, "--book-height": `${height}px` }}
+                          style={{ "--spine-color": color, "--book-height": `${height}px`, "--book-index": bookIndex }}
                           onClick={() => { setPulledBookId(entry.id); setOpenedEntry(entry); }}
                         >
                           {entry.book.cover_url && <img className="shelf-volume__cover" src={entry.book.cover_url} alt="" aria-hidden="true" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.hidden = true; event.currentTarget.parentElement.classList.remove("has-cover"); }} />}
