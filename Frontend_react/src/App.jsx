@@ -1,102 +1,59 @@
 import { useEffect, useRef, useState } from "react";
 
 const quotes = [
-  {
-    text: "Só se vê bem com o coração, o essencial é invisível aos olhos.",
-    work: "O Pequeno Príncipe",
-    author: "Antoine de Saint-Exupéry",
-  },
-  {
-    text: "Tudo vale a pena se a alma não é pequena.",
-    work: "Mensagem",
-    author: "Fernando Pessoa",
-  },
-  {
-    text: "A vida é uma ópera e uma grande ópera.",
-    work: "Dom Casmurro",
-    author: "Machado de Assis",
-  },
-  {
-    text: "Navegar é preciso; viver não é preciso.",
-    work: "Navegar é preciso",
-    author: "Fernando Pessoa",
-  },
-  {
-    text: "Tenho em mim todos os sonhos do mundo.",
-    work: "Tabacaria",
-    author: "Álvaro de Campos",
-  },
-  {
-    text: "Ao vencedor, as batatas!",
-    work: "Quincas Borba",
-    author: "Machado de Assis",
-  },
-  {
-    text: "Para ser grande, sê inteiro: nada teu exagera ou exclui.",
-    work: "Odes",
-    author: "Ricardo Reis",
-  },
-  {
-    text: "Põe quanto és no mínimo que fazes.",
-    work: "Odes",
-    author: "Ricardo Reis",
-  },
-  {
-    text: "O mar salgado, quanto do teu sal são lágrimas de Portugal!",
-    work: "Mar Português",
-    author: "Fernando Pessoa",
-  },
-  {
-    text: "Quem quer passar além do Bojador tem que passar além da dor.",
-    work: "Mar Português",
-    author: "Fernando Pessoa",
-  },
-  {
-    text: "Deus ao mar o perigo e o abismo deu, mas nele é que espelhou o céu.",
-    work: "Mar Português",
-    author: "Fernando Pessoa",
-  },
+  { text: "Só se vê bem com o coração, o essencial é invisível aos olhos.", work: "O Pequeno Príncipe", author: "Antoine de Saint-Exupéry" },
+  { text: "Tudo vale a pena se a alma não é pequena.", work: "Mensagem", author: "Fernando Pessoa" },
+  { text: "A vida é uma ópera e uma grande ópera.", work: "Dom Casmurro", author: "Machado de Assis" },
+  { text: "Navegar é preciso; viver não é preciso.", work: "Navegar é preciso", author: "Fernando Pessoa" },
+  { text: "Tenho em mim todos os sonhos do mundo.", work: "Tabacaria", author: "Álvaro de Campos" },
+  { text: "Ao vencedor, as batatas!", work: "Quincas Borba", author: "Machado de Assis" },
+  { text: "Para ser grande, sê inteiro: nada teu exagera ou exclui.", work: "Odes", author: "Ricardo Reis" },
+  { text: "Põe quanto és no mínimo que fazes.", work: "Odes", author: "Ricardo Reis" },
+  { text: "O mar salgado, quanto do teu sal são lágrimas de Portugal!", work: "Mar Português", author: "Fernando Pessoa" },
+  { text: "Quem quer passar além do Bojador tem que passar além da dor.", work: "Mar Português", author: "Fernando Pessoa" },
+  { text: "Deus ao mar o perigo e o abismo deu, mas nele é que espelhou o céu.", work: "Mar Português", author: "Fernando Pessoa" },
 ];
 
 const LAST_QUOTE_KEY = "mybooks:last-welcome-quote";
 const SEEN_QUOTES_KEY = "mybooks:seen-welcome-quotes";
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 
-function getSeenQuotes() {
+function chooseQuote() {
   try {
     const stored = JSON.parse(window.localStorage.getItem(SEEN_QUOTES_KEY) || "[]");
     const seen = Array.isArray(stored) ? stored : [];
     const lastQuote = window.localStorage.getItem(LAST_QUOTE_KEY);
-    return lastQuote && !seen.includes(lastQuote) ? [...seen, lastQuote] : seen;
+    if (lastQuote && !seen.includes(lastQuote)) seen.push(lastQuote);
+    const unseen = quotes.filter((quote) => !seen.includes(quote.text));
+    const choices = unseen.length ? unseen : quotes;
+    return choices[Math.floor(Math.random() * choices.length)];
   } catch {
-    return [];
+    return quotes[Math.floor(Math.random() * quotes.length)];
   }
 }
 
-function chooseQuote() {
-  const seen = getSeenQuotes();
-  const unseen = quotes.filter((quote) => !seen.includes(quote.text));
-  const choices = unseen.length ? unseen : quotes;
-  return choices[Math.floor(Math.random() * choices.length)];
-}
-
 function WelcomeScreen({ onContinue }) {
-  const [quote] = useState(chooseQuote);
   const [isLeaving, setIsLeaving] = useState(false);
   const screenRef = useRef(null);
   const continueTimerRef = useRef(null);
-
-  useEffect(() => {
-    const seen = getSeenQuotes();
-    const updatedSeen = seen.includes(quote.text) ? seen : [...seen, quote.text];
-    window.localStorage.setItem(
-      SEEN_QUOTES_KEY,
-      JSON.stringify(updatedSeen.length >= quotes.length ? [quote.text] : updatedSeen),
-    );
-    window.localStorage.setItem(LAST_QUOTE_KEY, quote.text);
-  }, [quote]);
+  const [quote] = useState(chooseQuote);
 
   useEffect(() => () => window.clearTimeout(continueTimerRef.current), []);
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(SEEN_QUOTES_KEY) || "[]");
+      const seen = Array.isArray(stored) ? stored : [];
+      const updatedSeen = seen.includes(quote.text) ? seen : [...seen, quote.text];
+      window.localStorage.setItem(
+        SEEN_QUOTES_KEY,
+        JSON.stringify(updatedSeen.length >= quotes.length ? [quote.text] : updatedSeen),
+      );
+      window.localStorage.setItem(LAST_QUOTE_KEY, quote.text);
+    } catch {
+      // A quote remains available even when browser storage is disabled.
+    }
+  }, [quote]);
 
   function handleContinue() {
     if (isLeaving) return;
@@ -150,7 +107,7 @@ function WelcomeScreen({ onContinue }) {
       onClick={handleContinue}
       onKeyDown={handleKeyDown}
       tabIndex={0}
-      aria-label="Tela de entrada do MyBooks. Clique ou pressione Enter para prosseguir."
+      aria-label="Tela de início do MyBooks. Acesse para entrar ou criar sua conta."
     >
       <div className="welcome-grain" aria-hidden="true" />
       <div className="welcome-depth" aria-hidden="true" />
@@ -162,7 +119,6 @@ function WelcomeScreen({ onContinue }) {
       </div>
 
       <section className="welcome-content" aria-label="Boas-vindas">
-        <p className="welcome-eyebrow">um lugar para cada história</p>
         <div className="brand-lockup" aria-label="MyBooks">
           <h1 className="brand-name" aria-label="MyBooks">
             <svg className="brand-name__svg" viewBox="0 0 720 180" aria-hidden="true" focusable="false">
@@ -182,19 +138,14 @@ function WelcomeScreen({ onContinue }) {
         <blockquote className="literary-quote" key={quote.text}>
           <span className="quote-mark" aria-hidden="true">“</span>
           <p>{quote.text}</p>
-          <footer>
-            <cite>— {quote.work}, {quote.author}</cite>
-          </footer>
+          <footer><cite>— {quote.work}, {quote.author}</cite></footer>
         </blockquote>
 
         <button className="enter-prompt" type="button" onClick={(event) => { event.stopPropagation(); handleContinue(); }}>
-          <span className="enter-prompt__dot" aria-hidden="true" />
-          <span>clique ou pressione Enter para prosseguir</span>
+          <span>Acessar o MyBooks</span>
           <span className="enter-prompt__arrow" aria-hidden="true">↓</span>
         </button>
       </section>
-
-      <p className="welcome-note">feito para acompanhar suas leituras</p>
     </main>
   );
 }
