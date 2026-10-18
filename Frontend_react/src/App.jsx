@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const quotes = [
   {
@@ -82,6 +82,9 @@ function chooseQuote() {
 
 function WelcomeScreen({ onContinue }) {
   const [quote] = useState(chooseQuote);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const screenRef = useRef(null);
+  const continueTimerRef = useRef(null);
 
   useEffect(() => {
     const seen = getSeenQuotes();
@@ -93,22 +96,64 @@ function WelcomeScreen({ onContinue }) {
     window.localStorage.setItem(LAST_QUOTE_KEY, quote.text);
   }, [quote]);
 
+  useEffect(() => () => window.clearTimeout(continueTimerRef.current), []);
+
+  function handleContinue() {
+    if (isLeaving) return;
+    setIsLeaving(true);
+    const delay = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 620;
+    continueTimerRef.current = window.setTimeout(onContinue, delay);
+  }
+
+  useEffect(() => {
+    const screen = screenRef.current;
+    const supportsPointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const reducesMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (!screen || !supportsPointer.matches || reducesMotion.matches) return undefined;
+
+    function handlePointerMove(event) {
+      const bounds = screen.getBoundingClientRect();
+      const x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+      const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
+      screen.style.setProperty("--pointer-x", `${(x * 100).toFixed(1)}%`);
+      screen.style.setProperty("--pointer-y", `${(y * 100).toFixed(1)}%`);
+      screen.style.setProperty("--depth-shift-x", `${((0.5 - x) * 10).toFixed(1)}px`);
+      screen.style.setProperty("--depth-shift-y", `${((0.5 - y) * 8).toFixed(1)}px`);
+    }
+
+    function resetPointer() {
+      screen.style.setProperty("--pointer-x", "50%");
+      screen.style.setProperty("--pointer-y", "41%");
+      screen.style.setProperty("--depth-shift-x", "0px");
+      screen.style.setProperty("--depth-shift-y", "0px");
+    }
+
+    screen.addEventListener("pointermove", handlePointerMove, { passive: true });
+    screen.addEventListener("pointerleave", resetPointer, { passive: true });
+    return () => {
+      screen.removeEventListener("pointermove", handlePointerMove);
+      screen.removeEventListener("pointerleave", resetPointer);
+    };
+  }, []);
+
   function handleKeyDown(event) {
-    if (event.key === "Enter" || event.key === " ") {
+    if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
-      onContinue();
+      handleContinue();
     }
   }
 
   return (
     <main
-      className="welcome-screen"
-      onClick={onContinue}
+      ref={screenRef}
+      className={`welcome-screen${isLeaving ? " is-leaving" : ""}`}
+      onClick={handleContinue}
       onKeyDown={handleKeyDown}
       tabIndex={0}
       aria-label="Tela de entrada do MyBooks. Clique ou pressione Enter para prosseguir."
     >
       <div className="welcome-grain" aria-hidden="true" />
+      <div className="welcome-depth" aria-hidden="true" />
       <div className="welcome-frame" aria-hidden="true">
         <span className="frame-corner frame-corner--top-left" />
         <span className="frame-corner frame-corner--top-right" />
@@ -119,7 +164,11 @@ function WelcomeScreen({ onContinue }) {
       <section className="welcome-content" aria-label="Boas-vindas">
         <p className="welcome-eyebrow">um lugar para cada história</p>
         <div className="brand-lockup" aria-label="MyBooks">
-          <h1 className="brand-name">MyBooks</h1>
+          <h1 className="brand-name" aria-label="MyBooks">
+            <svg className="brand-name__svg" viewBox="0 0 720 180" aria-hidden="true" focusable="false">
+              <text className="brand-name__letters" x="360" y="132" textAnchor="middle">MyBooks</text>
+            </svg>
+          </h1>
           <svg className="brand-flourish" viewBox="0 0 320 22" aria-hidden="true">
             <path d="M5 12 C73 4 106 20 158 12 S246 5 315 11" />
             <path d="M152 12 C157 5 163 5 168 12 C164 18 158 18 152 12Z" />
@@ -134,9 +183,9 @@ function WelcomeScreen({ onContinue }) {
           </footer>
         </blockquote>
 
-        <button className="enter-prompt" type="button" onClick={onContinue}>
+        <button className="enter-prompt" type="button" onClick={(event) => { event.stopPropagation(); handleContinue(); }}>
           <span className="enter-prompt__dot" aria-hidden="true" />
-          <span>clique na tela para prosseguir</span>
+          <span>clique ou pressione Enter para prosseguir</span>
           <span className="enter-prompt__arrow" aria-hidden="true">↓</span>
         </button>
       </section>
