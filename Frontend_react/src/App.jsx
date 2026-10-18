@@ -1082,6 +1082,14 @@ function LibraryLanding({ onReturn }) {
     setSubmittedStatus(status);
   }
 
+  function applyCategory(category) {
+    setStatus(category);
+    setPage(1);
+    setSubmittedSearch(search.trim());
+    setSubmittedGenre(genre.trim());
+    setSubmittedStatus(category);
+  }
+
   return (
     <main className={`library-landing${accessToken ? " has-navigation" : ""}`}>
       <header className={`library-header${accessToken ? "" : " library-header--login"}`}>
@@ -1182,22 +1190,35 @@ function LibraryLanding({ onReturn }) {
               <span>Gênero</span>
               <input value={genre} onChange={(event) => setGenre(event.target.value)} placeholder="Todos os gêneros" />
             </label>
-            <label>
-              <span>Categoria</span>
-              <select value={status} onChange={(event) => setStatus(event.target.value)}>
-                <option value="">Todas</option>
-                <option value="WANT_TO_READ">Desejos</option>
-                <option value="READING">Não lidos</option>
-                <option value="READ">Já lidos</option>
-              </select>
-            </label>
             <div className="filter-actions">
-              <button className="library-primary-button" type="submit">aplicar filtros</button>
+              <button className="library-primary-button" type="submit">buscar</button>
               <button className="library-text-button" type="button" onClick={() => {
                 setSearch(""); setGenre(""); setStatus(""); setSubmittedSearch(""); setSubmittedGenre(""); setSubmittedStatus(""); setPage(1);
               }}>limpar</button>
             </div>
           </form>
+
+          <nav className="library-category-bar" aria-label="Filtrar estante por categoria">
+            <span className="library-category-bar__label">Categorias</span>
+            <div className="library-category-bar__tabs">
+              {[
+                { label: "Todos", value: "" },
+                { label: "Desejos", value: "WANT_TO_READ" },
+                { label: "Não lidos", value: "READING" },
+                { label: "Já lidos", value: "READ" },
+              ].map((category) => (
+                <button
+                  className={`library-category-tab${submittedStatus === category.value ? " is-active" : ""}`}
+                  key={category.value || "all"}
+                  type="button"
+                  aria-pressed={submittedStatus === category.value}
+                  onClick={() => applyCategory(category.value)}
+                >
+                  {category.label}
+                </button>
+              ))}
+            </div>
+          </nav>
 
           {error && <p className="library-error" role="alert">{error}</p>}
           {loading ? <p className="library-feedback">abrindo seus livros…</p> : entries.length ? (
