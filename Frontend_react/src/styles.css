@@ -339,6 +339,17 @@ button { color: inherit; }
 .reading-chart__bars { display: flex; height: 128px; align-items: flex-end; justify-content: center; gap: 3px; border-bottom: 1px solid rgba(117, 81, 56, .1); background: repeating-linear-gradient(to top, transparent 0 31px, rgba(117, 81, 56, .07) 32px); }
 .reading-chart__bar { width: min(35%, 18px); min-height: 0; border-radius: 3px 3px 0 0; transition: height .55s cubic-bezier(.2, .75, .25, 1); }
 .reading-chart__label { display: block; overflow: hidden; padding-top: 7px; color: #827464; font-size: .64rem; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.reading-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.reading-summary-card { min-width: 0; padding: 15px 17px; border: 1px solid var(--surface-border); border-radius: var(--radius-card); background: rgba(255, 252, 246, .68); box-shadow: var(--shadow-surface); }
+.reading-summary-card h3 { margin: 0 0 12px; color: #76583e; font-family: Georgia, serif; font-size: 1.05rem; font-weight: 400; }
+.reading-summary-card > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.reading-summary-card p { display: grid; gap: 2px; min-width: 0; margin: 0; }
+.reading-summary-card strong { color: #45372b; font-size: 1.25rem; font-variant-numeric: tabular-nums; line-height: 1; }
+.reading-summary-card span { color: #827464; font-size: .73rem; }
+.reading-chart__totals span { display: flex; align-items: baseline; gap: 4px; }
+.reading-chart__totals strong { font-size: .9rem; font-variant-numeric: tabular-nums; }
+.reading-chart__totals small { color: #8a7c6c; font-size: .62rem; }
+.reading-chart__scale-note { margin: 7px 0 0; color: #918473; font-size: .68rem; font-style: italic; }
 .reading-progress-note { margin: 15px 0 0; color: #918473; font-size: .76rem; font-style: italic; }
 .shared-mailbox-button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 13px; border: 1px solid rgba(117, 81, 56, .28); background: rgba(255, 252, 246, .66); color: #68482f; cursor: pointer; }
 .shared-mailbox-button span { display: grid; width: 21px; height: 21px; place-items: center; border-radius: 50%; background: #8c4d3d; color: white; font: 600 .7rem Arial, sans-serif; }
@@ -551,6 +562,12 @@ button { color: inherit; }
   .shared-letter-open { padding: 13px; }
   .shared-letter-open__paper { margin-right: 5px; margin-left: 5px; padding: 22px 16px; }
   .reading-progress-grid { grid-template-columns: 1fr; }
+  .reading-summary { gap: 7px; }
+  .reading-summary-card { padding: 12px 9px; }
+  .reading-summary-card h3 { margin-bottom: 9px; font-size: .92rem; }
+  .reading-summary-card > div { gap: 4px; }
+  .reading-summary-card strong { font-size: 1.08rem; }
+  .reading-summary-card span { font-size: .65rem; }
   .reading-chart { padding: 17px 14px 13px; }
   .reading-chart__plot { height: 145px; }
   .reading-timer__main { grid-template-columns: 1fr auto; gap: 12px; }

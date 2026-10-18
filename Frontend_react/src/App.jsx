@@ -326,21 +326,40 @@ function ReadingChart({ title, description, items }) {
     <section className="reading-chart" aria-label={title}>
       <div className="reading-chart__heading">
         <div><h2>{title}</h2><p>{description}</p></div>
-        <div className="reading-chart__totals"><span>{pagesTotal} páginas</span><span>{booksTotal} livros</span><span>{minutesTotal} min</span></div>
+        <div className="reading-chart__totals" aria-label={`Totais: ${pagesTotal} páginas, ${booksTotal} livros e ${minutesTotal} minutos`}>
+          <span><strong>{pagesTotal}</strong><small>páginas</small></span>
+          <span><strong>{booksTotal}</strong><small>livros</small></span>
+          <span><strong>{minutesTotal}</strong><small>min</small></span>
+        </div>
       </div>
       <div className="reading-chart__legend"><span><i className="reading-chart__swatch reading-chart__swatch--pages" />Páginas</span><span><i className="reading-chart__swatch reading-chart__swatch--books" />Livros concluídos</span></div>
+      <p className="reading-chart__scale-note">Cada indicador usa sua própria escala.</p>
       <div className="reading-chart__plot" role="list" aria-label={`Gráfico de ${title}`}>
         {items.map((item, index) => (
           <div className="reading-chart__column" role="listitem" key={`${item.label}-${index}`} aria-label={`${item.label}: ${item.pages} páginas avançadas e ${item.books} livros concluídos`}>
             <div className="reading-chart__bars" aria-hidden="true">
-              <span className="reading-chart__bar reading-chart__bar--pages" style={{ height: `${item.pages ? Math.max(5, item.pages / maxPages * 100) : 0}%` }} />
-              <span className="reading-chart__bar reading-chart__bar--books" style={{ height: `${item.books ? Math.max(5, item.books / maxBooks * 100) : 0}%` }} />
+              <span className="reading-chart__bar reading-chart__bar--pages" title={`${item.label}: ${item.pages} páginas`} style={{ height: `${item.pages ? Math.max(5, item.pages / maxPages * 100) : 0}%` }} />
+              <span className="reading-chart__bar reading-chart__bar--books" title={`${item.label}: ${item.books} livros concluídos`} style={{ height: `${item.books ? Math.max(5, item.books / maxBooks * 100) : 0}%` }} />
             </div>
             <span className="reading-chart__label">{item.label}</span>
           </div>
         ))}
       </div>
     </section>
+  );
+}
+
+function ReadingSummary({ period, item = {} }) {
+  const values = [
+    { value: item.pages || 0, label: "páginas" },
+    { value: item.books || 0, label: "livros" },
+    { value: item.minutes || 0, label: "minutos" },
+  ];
+  return (
+    <article className="reading-summary-card" aria-label={`${period}: ${values.map(({ value, label }) => `${value} ${label}`).join(", ")}`}>
+      <h3>{period}</h3>
+      <div>{values.map(({ value, label }) => <p key={label}><strong>{value}</strong><span>{label}</span></p>)}</div>
+    </article>
   );
 }
 
@@ -485,6 +504,11 @@ function ReadingProgressView({ accessToken, onToken }) {
       {loading ? <p className="library-feedback">reunindo suas leituras…</p> : stats ? (
         <>
           <ReadingTimer accessToken={accessToken} onToken={onToken} todayMinutes={stats.daily?.at(-1)?.minutes || 0} onSessionStopped={() => setRefreshCount((count) => count + 1)} />
+          <section className="reading-summary" aria-label="Resumo deste período">
+            <ReadingSummary period="Hoje" item={stats.daily?.at(-1)} />
+            <ReadingSummary period="Esta semana" item={stats.weekly?.at(-1)} />
+            <ReadingSummary period="Este mês" item={stats.monthly?.at(-1)} />
+          </section>
           <div className="reading-progress-grid">
             <ReadingChart title="Por dia" description="Últimos 7 dias" items={stats.daily || []} />
             <ReadingChart title="Por semana" description="Últimas 8 semanas" items={stats.weekly || []} />
