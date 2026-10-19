@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const quotes = [
   { text: "Só se vê bem com o coração, o essencial é invisível aos olhos.", work: "O Pequeno Príncipe", author: "Antoine de Saint-Exupéry" },
@@ -196,13 +196,16 @@ function groupIntoShelves(items, shelfSize = 6) {
   return shelves;
 }
 
-function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated }) {
+function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated, isClosing }) {
   const [pagesRead, setPagesRead] = useState(entry.pages_read);
   const [status, setStatus] = useState(entry.status);
   const [review, setReview] = useState(null);
   const [rating, setRating] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [coverFailed, setCoverFailed] = useState(false);
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
   const book = entry.book;
   const totalPages = book.total_pages;
   const progress = totalPages ? Math.min(100, Math.round((pagesRead / totalPages) * 100)) : 0;
@@ -210,11 +213,38 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
     && entry.status === "READ" && entry.pages_read === totalPages;
 
   useEffect(() => {
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = [...(dialogRef.current?.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+      ) || [])];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
   }, [onClose]);
 
   useEffect(() => {
@@ -284,12 +314,12 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
   }
 
   return (
-    <div className="book-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section className="book-dialog" role="dialog" aria-modal="true" aria-labelledby="book-dialog-title">
-        <button className="book-dialog__close" type="button" onClick={onClose} aria-label="Fechar livro e voltar à estante">×</button>
+    <div className={`book-dialog-backdrop${isClosing ? " is-closing" : ""}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section ref={dialogRef} className={`book-dialog${isClosing ? " is-closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="book-dialog-title">
+        <button ref={closeButtonRef} className="book-dialog__close" type="button" onClick={onClose} aria-label="Fechar livro e voltar à estante">×</button>
         <div className="book-dialog__book-open">
           <div className="book-dialog__cover-page">
-            {book.cover_url ? <img src={book.cover_url} alt={`Capa de ${book.title}`} onError={(event) => { event.currentTarget.hidden = true; }} /> : <div className="book-dialog__cover-fallback">{book.title}</div>}
+            {book.cover_url && !coverFailed ? <img src={book.cover_url} alt={`Capa de ${book.title}`} onError={() => setCoverFailed(true)} /> : <div className="book-dialog__cover-fallback">{book.title}</div>}
           </div>
           <div className="book-dialog__page-flips" aria-hidden="true">
             {[0, 1, 2].map((page) => <span key={page} style={{ "--page-index": page }} />)}
@@ -940,6 +970,8 @@ function LibraryLanding({ onReturn }) {
   const [entries, setEntries] = useState([]);
   const [pulledBookId, setPulledBookId] = useState(null);
   const [openedEntry, setOpenedEntry] = useState(null);
+  const [isClosingBook, setIsClosingBook] = useState(false);
+  const bookTransitionTimerRef = useRef(null);
   const [search, setSearch] = useState("");
   const [genre, setGenre] = useState("");
   const [status, setStatus] = useState("");
@@ -952,6 +984,41 @@ function LibraryLanding({ onReturn }) {
   const [totalEntries, setTotalEntries] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => () => window.clearTimeout(bookTransitionTimerRef.current), []);
+
+  function openBook(entry) {
+    window.clearTimeout(bookTransitionTimerRef.current);
+    setIsClosingBook(false);
+    setPulledBookId(entry.id);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) {
+      setOpenedEntry(entry);
+      return;
+    }
+    bookTransitionTimerRef.current = window.setTimeout(() => {
+      setOpenedEntry(entry);
+      bookTransitionTimerRef.current = null;
+    }, 320);
+  }
+
+  const closeBook = useCallback(() => {
+    window.clearTimeout(bookTransitionTimerRef.current);
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) {
+      setOpenedEntry(null);
+      setPulledBookId(null);
+      setIsClosingBook(false);
+      return;
+    }
+    setIsClosingBook(true);
+    bookTransitionTimerRef.current = window.setTimeout(() => {
+      setOpenedEntry(null);
+      setPulledBookId(null);
+      setIsClosingBook(false);
+      bookTransitionTimerRef.current = null;
+    }, 220);
+  }, []);
 
   useEffect(() => {
     if (!accessToken) return undefined;
@@ -1188,18 +1255,18 @@ function LibraryLanding({ onReturn }) {
                       const isPulled = pulledBookId === entry.id;
                       return (
                         <button
-                          className={`shelf-volume${isPulled ? " is-pulled" : ""}`}
+                          className={`shelf-volume${isPulled ? " is-pulled" : ""}${isPulled && !openedEntry ? " is-opening" : ""}`}
                           key={entry.id}
                           type="button"
                           aria-haspopup="dialog"
                           aria-label={`Abrir ${entry.book.title}, de ${entry.book.author}. ${statusLabel(entry.status)}.`}
                           style={{ "--spine-color": color, "--book-height": `${height}px`, "--book-index": bookIndex }}
-                          onClick={() => { setPulledBookId(entry.id); setOpenedEntry(entry); }}
+                          onClick={() => openBook(entry)}
                         >
                           <span className="shelf-volume__top" aria-hidden="true" />
                           <span className="shelf-volume__title">{entry.book.title}</span>
                           <span className="shelf-volume__author">{entry.book.author}</span>
-                          <span className="shelf-volume__bottom" aria-hidden="true">?</span>
+                          <span className="shelf-volume__bottom" aria-hidden="true">{entry.status === "READ" ? "✓" : entry.status === "READING" ? "◒" : "✦"}</span>
                         </button>
                       );
                     })}
@@ -1208,7 +1275,7 @@ function LibraryLanding({ onReturn }) {
                 </section>
               ))}
               <p className="bookshelf-hint" aria-live="polite">
-                {pulledBookId ? "Livro aberto para você consultar os detalhes." : "Passe o cursor sobre a lombada para incliná-la; clique para abrir e folhear."}
+                {pulledBookId ? openedEntry ? "Livro aberto para você consultar os detalhes." : "Retirando um livro da estante…" : "Passe o cursor sobre a lombada para incliná-la; clique para abrir e folhear."}
               </p>
             </div>
           ) : (
@@ -1230,9 +1297,10 @@ function LibraryLanding({ onReturn }) {
       )}
       {openedEntry && <BookDetailDialog
         entry={openedEntry}
+        isClosing={isClosingBook}
         accessToken={accessToken}
         onToken={setAccessToken}
-        onClose={() => { setOpenedEntry(null); setPulledBookId(null); }}
+        onClose={closeBook}
         onEntryUpdated={(updated) => {
           setEntries((current) => current.map((item) => item.id === updated.id ? updated : item));
           setOpenedEntry(updated);
