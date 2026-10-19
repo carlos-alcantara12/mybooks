@@ -1246,43 +1246,47 @@ function LibraryLanding({ onReturn }) {
           </div>
 
           <form className="library-filters" onSubmit={applyFilters}>
-            <label className="filter-search">
-              <span>Buscar por título ou autor</span>
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ex.: Machado de Assis" />
-            </label>
-            <label>
-              <span>Gênero</span>
-              <input value={genre} onChange={(event) => setGenre(event.target.value)} placeholder="Todos os gêneros" />
-            </label>
-            <div className="filter-actions">
-              <button className="library-primary-button" type="submit">buscar</button>
-              <button className="library-text-button" type="button" onClick={() => {
-                setSearch(""); setGenre(""); setStatus(""); setSubmittedSearch(""); setSubmittedGenre(""); setSubmittedStatus(""); setPage(1);
-              }}>limpar</button>
+            <div className="library-filters__fields">
+              <label className="filter-search">
+                <span>Título ou autor</span>
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Ex.: Machado de Assis" />
+              </label>
+              <label>
+                <span>Gênero</span>
+                <input value={genre} onChange={(event) => setGenre(event.target.value)} placeholder="Todos os gêneros" />
+              </label>
+              <div className="filter-actions">
+                <button className="library-primary-button" type="submit">buscar</button>
+                {(search || genre || submittedSearch || submittedGenre || status || submittedStatus) && (
+                  <button className="library-text-button" type="button" onClick={() => {
+                    setSearch(""); setGenre(""); setStatus(""); setSubmittedSearch(""); setSubmittedGenre(""); setSubmittedStatus(""); setPage(1);
+                  }}>limpar filtros</button>
+                )}
+              </div>
+            </div>
+
+            <div className="library-category-bar" role="group" aria-label="Filtrar estante por categoria">
+              <span className="library-category-bar__label">Mostrar</span>
+              <div className="library-category-bar__tabs">
+                {[
+                  { label: "Todos", value: "" },
+                  { label: "Desejos", value: "WANT_TO_READ" },
+                  { label: "Lendo", value: "READING" },
+                  { label: "Já lidos", value: "READ" },
+                ].map((category) => (
+                  <button
+                    className={`library-category-tab${submittedStatus === category.value ? " is-active" : ""}`}
+                    key={category.value || "all"}
+                    type="button"
+                    aria-pressed={submittedStatus === category.value}
+                    onClick={() => applyCategory(category.value)}
+                  >
+                    {category.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </form>
-
-          <nav className="library-category-bar" aria-label="Filtrar estante por categoria">
-            <span className="library-category-bar__label">Categorias</span>
-            <div className="library-category-bar__tabs">
-              {[
-                { label: "Todos", value: "" },
-                { label: "Desejos", value: "WANT_TO_READ" },
-                { label: "Não lidos", value: "READING" },
-                { label: "Já lidos", value: "READ" },
-              ].map((category) => (
-                <button
-                  className={`library-category-tab${submittedStatus === category.value ? " is-active" : ""}`}
-                  key={category.value || "all"}
-                  type="button"
-                  aria-pressed={submittedStatus === category.value}
-                  onClick={() => applyCategory(category.value)}
-                >
-                  {category.label}
-                </button>
-              ))}
-            </div>
-          </nav>
 
           {error && <p className="library-error" role="alert">{error}</p>}
           {loading ? <p className="library-feedback">abrindo seus livros…</p> : entries.length ? (
