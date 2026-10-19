@@ -25,6 +25,8 @@ def env_list(name, default=""):
 
 
 DEBUG = env_bool("DJANGO_DEBUG", default=False)
+GOOGLE_BOOKS_API_KEY = os.getenv("GOOGLE_BOOKS_API_KEY", "").strip()
+OPEN_LIBRARY_CONTACT_EMAIL = os.getenv("OPEN_LIBRARY_CONTACT_EMAIL", "").strip()
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "").strip()
 if not SECRET_KEY:
     if DEBUG:
@@ -153,7 +155,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework_simplejwt.authentication.JWTAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "DEFAULT_THROTTLE_RATES": {"auth": "10/min"},
+    "DEFAULT_THROTTLE_RATES": {"auth": "10/min", "external_catalog": "1/sec"},
     "PAGE_SIZE": 20,
 }
 

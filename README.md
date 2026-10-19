@@ -4,7 +4,7 @@ O **MyBooks** é uma aplicação web para organizar livros e acompanhar a vida d
 
 Além de ser útil no dia a dia, o projeto serve como exemplo prático de desenvolvimento de software: reúne modelagem de dados, API REST, autenticação, regras de negócio, validação de informações e uma base para a futura construção de uma interface web.
 
-> **Estado do projeto nesta versão:** o backend Django oferece bibliotecas pessoais e compartilhadas, correio interno, convites, pedidos de remoção, avaliações, progresso por páginas e busca/filtros. O frontend React inclui tela de entrada, login e consulta da biblioteca pessoal com busca por título/autor e filtros de gênero e categoria. Timer, gráficos, estante interativa e demais fluxos da API ainda precisam ser implementados.
+> **Estado do projeto nesta versão:** o backend Django oferece bibliotecas pessoais e compartilhadas, correio interno, convites, pedidos de remoção, avaliações, progresso por páginas e busca/filtros. O frontend React inclui tela de entrada, login, busca no catálogo local e em fontes online, biblioteca pessoal e estante interativa. A busca online usa Google Books com fallback para Open Library; a chave do Google é opcional.
 
 ---
 
@@ -391,7 +391,7 @@ Possíveis melhorias futuras, a serem priorizadas conforme o objetivo do projeto
 5. **Estante animada:** criar a estante de madeira, interação com livros, visualização aberta com resumo e suporte a capas.
 6. **Tela de entrada:** ✅ escrita animada de MyBooks, frase literária variável com autoria e ação para prosseguir.
 7. **Busca e filtros:** ✅ pesquisa por título/autor e filtros por gênero e categoria na biblioteca pessoal.
-8. **Integração com catálogo externo:** avaliar uma fonte apropriada para metadados e capas, respeitando os termos de uso.
+8. **Integração com catálogo externo:** ✅ busca em Google Books/Open Library e importação automática dos metadados quando a obra é adicionada à biblioteca.
 9. **Produção e qualidade:** revisar testes, acessibilidade, banco de dados, segurança, deploy, observabilidade e backups.
 
 ### Etapa 9 — base de produção e qualidade

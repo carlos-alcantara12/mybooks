@@ -527,6 +527,9 @@ button { color: inherit; }
 .catalog-card__eyebrow { margin: 0 0 5px; color: #987655; font-size: .66rem; letter-spacing: .17em; text-transform: uppercase; }
 .catalog-card__body h2 { display: -webkit-box; overflow: hidden; margin: 0; color: #352a22; font-size: 1.52rem; font-weight: 500; line-height: 1.02; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .catalog-card__author { margin: 6px 0 0; color: #756b60; font-size: 1rem; }
+.catalog-card__source { margin: 5px 0 0; color: #92816c; font-size: .72rem; }
+.catalog-card__source a { color: #76583e; text-decoration: underline; text-underline-offset: 2px; }
+.catalog-card__source a:hover { color: #493523; }
 .catalog-card__facts { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
 .catalog-card__facts span { padding: 4px 8px; border: 1px solid rgba(138, 98, 68, .2); color: #725d49; font-size: .73rem; }
 .catalog-card__synopsis { display: -webkit-box; overflow: hidden; margin: 12px 0 15px; color: #655b4f; font-size: .96rem; line-height: 1.38; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }

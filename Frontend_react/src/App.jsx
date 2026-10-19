@@ -406,6 +406,22 @@ async function catalogRequest(path, token, onToken, options = {}) {
   return data;
 }
 
+function externalBookImportPayload(book) {
+  const provider = book.provider || "google_books";
+  const payload = { provider, source_id: book.source_id };
+  if (provider === "open_library") {
+    payload.metadata = {
+      title: book.title,
+      author: book.author,
+      synopsis: book.synopsis,
+      genre: book.genre,
+      total_pages: book.total_pages,
+      cover_url: book.cover_url,
+    };
+  }
+  return payload;
+}
+
 function ReadingChart({ title, description, items }) {
   const maxPages = Math.max(1, ...items.map((item) => item.pages));
   const maxBooks = Math.max(1, ...items.map((item) => item.books));
@@ -699,7 +715,7 @@ function SharedLibrariesView({ accessToken, onToken, username, onUnreadChange })
     event.preventDefault();
     if (!query.trim()) return;
     setBusy(true); setError("");
-    try { const data = await catalogRequest(`/books/?search=${encodeURIComponent(query.trim())}`, accessToken, onToken); setSearchResults(data.results || []); }
+    try { const data = await catalogRequest(`/books/discover/?search=${encodeURIComponent(query.trim())}`, accessToken, onToken); setSearchResults(data.results || []); setError(data.warning || ""); }
     catch (e) { setError(e.message); } finally { setBusy(false); }
   }
 
@@ -722,8 +738,26 @@ function SharedLibrariesView({ accessToken, onToken, username, onUnreadChange })
 
   async function addBook(book) {
     if (!selected) return;
-    const ok = await act("/shared-books/", { method: "POST", body: JSON.stringify({ shared_library_id: selected.id, book_id: book.id }) }, `“${book.title}” foi adicionado à estante.`);
-    if (ok) setSearchResults([]);
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const catalogBook = book.is_external
+        ? await catalogRequest("/books/import/", accessToken, onToken, {
+          method: "POST",
+          body: JSON.stringify(externalBookImportPayload(book)),
+        })
+        : book;
+      await catalogRequest("/shared-books/", accessToken, onToken, {
+        method: "POST",
+        body: JSON.stringify({ shared_library_id: selected.id, book_id: catalogBook.id }),
+      });
+      setNotice(`“${book.title}” foi adicionado à estante.`);
+      setSearchResults([]);
+      reload();
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveProgress(item) {
@@ -765,7 +799,7 @@ function SharedLibrariesView({ accessToken, onToken, username, onUnreadChange })
         {libraries.length ? <div className="shared-library-tabs" role="tablist" aria-label="Bibliotecas compartilhadas">{libraries.map((item) => <button type="button" role="tab" aria-selected={selectedId === item.id} className={selectedId === item.id ? "is-active" : ""} key={item.id} onClick={() => setSelectedId(item.id)}><strong>{item.name}</strong><small>{item.members.join(" · ")}</small></button>)}</div> : <p className="shared-empty shared-empty--panel">Crie uma biblioteca ou aceite um convite para montar uma estante em conjunto.</p>}
         {selected && <div className="shared-shelf-panel"><div className="shared-section-heading"><div><p className="library-kicker">{selected.members.join(" · ")}</p><h3>{selected.name}</h3></div><span>{selectedBooks.length} {selectedBooks.length === 1 ? "livro" : "livros"}</span></div>
           <form className="shared-book-search" onSubmit={searchBooks}><label>Adicionar obra do catálogo<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Busque por título ou autor" /></label><button className="library-primary-button" disabled={busy || !query.trim()}>buscar obras</button></form>
-          {searchResults.length > 0 && <div className="shared-catalog-results">{searchResults.map((book) => { const already = books.some((item) => item.shared_library.id === selectedId && item.book.id === book.id); return <article key={book.id}><span>{book.title} <small>— {book.author}</small></span><button type="button" disabled={busy || already} onClick={() => addBook(book)}>{already ? "na estante" : "+ adicionar"}</button></article>; })}</div>}
+          {searchResults.length > 0 && <div className="shared-catalog-results">{searchResults.map((book) => { const already = books.some((item) => item.shared_library.id === selectedId && (item.book.id === book.id || (book.is_external && item.book.title.trim().toLocaleLowerCase() === book.title.trim().toLocaleLowerCase() && item.book.author.trim().toLocaleLowerCase() === book.author.trim().toLocaleLowerCase()))); return <article key={book.id}><span>{book.title} <small>— {book.author}{book.source ? ` · ${book.source}` : ""}</small></span><button type="button" disabled={busy || already} onClick={() => addBook(book)}>{already ? "na estante" : "+ adicionar"}</button></article>; })}</div>}
           {selectedBooks.length ? <div className="shared-book-grid">{selectedBooks.map((item) => {
             const own = reading.find((state) => state.shared_library_id === selectedId && state.book_id === item.book.id);
             const edit = own ? edits[own.id] || { status: own.status, pages_read: own.pages_read } : null;
@@ -810,12 +844,13 @@ function CatalogExplorer({ accessToken, onToken }) {
     if (submittedGenre) params.set("genre", submittedGenre);
     setLoading(true);
     setError("");
-    getLibraryPage(`/books/?${params.toString()}`, accessToken, onToken, controller.signal)
+    getLibraryPage(`/books/discover/?${params.toString()}`, accessToken, onToken, controller.signal)
       .then((data) => {
         setResults(data.results || []);
         setTotalBooks(data.count || 0);
         setHasNext(Boolean(data.next));
         setHasPrevious(Boolean(data.previous));
+        setError(data.warning || "");
       })
       .catch((requestError) => {
         if (requestError.name !== "AbortError") setError(requestError.message);
@@ -848,10 +883,16 @@ function CatalogExplorer({ accessToken, onToken }) {
     setAddingBook(book.id);
     setFeedback((current) => ({ ...current, [book.id]: "" }));
     try {
+      const catalogBook = book.is_external
+        ? await catalogRequest("/books/import/", accessToken, onToken, {
+          method: "POST",
+          body: JSON.stringify(externalBookImportPayload(book)),
+        })
+        : book;
       await catalogRequest("/library/", accessToken, onToken, {
         method: "POST",
         body: JSON.stringify({
-          book_id: book.id,
+          book_id: catalogBook.id,
           status: category,
           ...(category === "READ" ? { pages_read: book.total_pages } : {}),
         }),
@@ -879,7 +920,7 @@ function CatalogExplorer({ accessToken, onToken }) {
           <h1 id="explore-title">Encontre sua próxima leitura.</h1>
           <p className="explore-intro">Busque por título, autor ou gênero e descubra novas histórias para sua estante.</p>
         </div>
-        {(submittedSearch || submittedGenre) && <p className="explore-count">{totalBooks} {totalBooks === 1 ? "obra encontrada" : "obras encontradas"}</p>}
+        {(submittedSearch || submittedGenre) && <p className="explore-count">{totalBooks} {totalBooks === 1 ? "resultado nesta página" : "resultados nesta página"}</p>}
       </div>
 
       <form className="explore-search" onSubmit={submitSearch}>
@@ -916,9 +957,10 @@ function CatalogExplorer({ accessToken, onToken }) {
                   <p className="catalog-card__eyebrow">{book.genre || "obra do catálogo"}</p>
                   <h2>{book.title}</h2>
                   <p className="catalog-card__author">{book.author}</p>
+                  <p className="catalog-card__source">Fonte: {book.source || "Catálogo MyBooks"}{book.external_url && <> · <a href={book.external_url} target="_blank" rel="noreferrer">ver registro</a></>}</p>
                   <div className="catalog-card__facts">
                     {book.total_pages ? <span>{book.total_pages} páginas</span> : <span>páginas não informadas</span>}
-                    {book.publication_date && <span>{book.publication_date.slice(0, 4)}</span>}
+                    {(book.publication_year || book.publication_date?.slice(0, 4)) && <span>{book.publication_year || book.publication_date.slice(0, 4)}</span>}
                   </div>
                   <p className="catalog-card__synopsis">{book.synopsis || "Ainda não há um resumo cadastrado para esta obra."}</p>
                   <div className="catalog-card__actions">

@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime, time, timedelta
 
 from django.db import transaction
@@ -26,6 +27,7 @@ from .models import (
     SharedLibraryReading,
     TrendingBook,
 )
+from .external_books import ExternalBookCatalogError, get_google_volume, search_external_books
 from .serializers import (
     BookSerializer,
     LibraryEntrySerializer,
@@ -264,6 +266,115 @@ class BookViewSet(viewsets.ModelViewSet):
         if self.action in ("list", "retrieve", "create"):
             return [permissions.IsAuthenticated()]
         return [permissions.IsAdminUser()]
+
+
+class BookDiscoveryView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "external_catalog"
+
+    def get(self, request):
+        query = request.query_params.get("search", "").strip()
+        genre = request.query_params.get("genre", "").strip()
+        if not query and not genre:
+            raise ValidationError({"search": "Informe um título, autor ou gênero para pesquisar."})
+        if len(query) > 180 or len(genre) > 100:
+            raise ValidationError({"search": "A busca excede o tamanho permitido."})
+        try:
+            page = max(1, int(request.query_params.get("page", "1")))
+        except ValueError as error:
+            raise ValidationError({"page": "Informe um número de página válido."}) from error
+
+        local_queryset = Book.objects.all()
+        if query:
+            local_queryset = local_queryset.filter(Q(title__icontains=query) | Q(author__icontains=query))
+        if genre:
+            local_queryset = local_queryset.filter(genre__icontains=genre)
+        local_count = local_queryset.count()
+        local_books = list(local_queryset[(page - 1) * 20:page * 20])
+        local_results = []
+        for book in local_books:
+            item = BookSerializer(book).data
+            item.update({"source": "Catálogo MyBooks", "is_external": False, "publication_year": str(book.publication_date.year) if book.publication_date else ""})
+            local_results.append(item)
+
+        warning = ""
+        try:
+            external_results, external_count = search_external_books(query, genre, page)
+        except ExternalBookCatalogError as error:
+            external_results, external_count = [], 0
+            warning = str(error)
+
+        results = []
+        seen = set()
+        for item in [*local_results, *external_results]:
+            key = (item["title"].casefold().strip(), item["author"].casefold().strip())
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append(item)
+
+        has_next = page < max((local_count + 19) // 20, (external_count + 19) // 20)
+        return Response({
+            "count": len(results),
+            "results": results,
+            "next": has_next,
+            "previous": page > 1,
+            "warning": warning,
+        })
+
+
+class ImportExternalBookView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        provider = request.data.get("provider")
+        if provider == "google_books":
+            try:
+                volume = get_google_volume(request.data.get("source_id"))
+            except ExternalBookCatalogError as error:
+                return Response({"detail": str(error)}, status=status.HTTP_502_BAD_GATEWAY)
+            fields = {
+                "title": volume["title"],
+                "author": volume["author"],
+                "synopsis": volume["synopsis"],
+                "genre": volume["genre"],
+                "total_pages": volume["total_pages"],
+                "cover_url": volume["cover_url"],
+                "publication_date": volume["publication_date"],
+            }
+        elif provider == "open_library":
+            source_id = str(request.data.get("source_id") or "")
+            metadata = request.data.get("metadata")
+            if not re.fullmatch(r"OL\d+W", source_id) or not isinstance(metadata, dict):
+                raise ValidationError({"source_id": "Os dados desta obra do Open Library são inválidos."})
+            fields = {
+                "title": metadata.get("title", ""),
+                "author": metadata.get("author", ""),
+                "synopsis": metadata.get("synopsis", ""),
+                "genre": metadata.get("genre", ""),
+                "total_pages": metadata.get("total_pages"),
+                "cover_url": metadata.get("cover_url", ""),
+                "publication_date": None,
+            }
+        else:
+            raise ValidationError({"provider": "Esta fonte de livros não é aceita."})
+
+        existing = Book.objects.filter(title__iexact=fields["title"], author__iexact=fields["author"]).first()
+        if existing:
+            return Response(BookSerializer(existing).data, status=status.HTTP_200_OK)
+
+        serializer = BookSerializer(data=fields)
+        serializer.is_valid(raise_exception=True)
+        try:
+            with transaction.atomic():
+                book = serializer.save()
+        except ValidationError:
+            existing = Book.objects.filter(title__iexact=fields["title"], author__iexact=fields["author"]).first()
+            if not existing:
+                raise
+            book = existing
+        return Response(BookSerializer(book).data, status=status.HTTP_201_CREATED)
 
 class LibraryEntryViewSet(viewsets.ModelViewSet):
     serializer_class = LibraryEntrySerializer

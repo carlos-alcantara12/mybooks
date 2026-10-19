@@ -1,6 +1,6 @@
 # Frontend MyBooks
 
-Interface MyBooks feita com React e Vite. A tela de entrada leva à área da biblioteca, onde a pessoa pode entrar ou criar uma conta, pesquisar livros por título ou autor e filtrar por gênero e categoria.
+Interface MyBooks feita com React e Vite. A tela de entrada leva à área da biblioteca, onde a pessoa pode entrar ou criar uma conta, pesquisar livros do catálogo local e do Google Books e filtrar por gênero e categoria. Uma obra online só é importada para o catálogo MyBooks quando a pessoa a adiciona à própria estante ou a uma biblioteca compartilhada.
 
 ## Executar localmente
 

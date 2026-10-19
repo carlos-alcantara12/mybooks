@@ -62,6 +62,7 @@ Cadastro, obtenção e renovação de tokens são limitados a 10 requisições p
 | Recurso | Leitura | Criação | Edição e remoção |
 |---|---|---|---|
 | `/api/books/` | Usuário autenticado | Usuário autenticado | Administrador (`is_staff`) |
+| `/api/books/discover/`, `/api/books/import/` | Usuário autenticado | Busca online e importação de metadados | Não aplicável |
 | `/api/library/` | Apenas a própria biblioteca | Usuário autenticado; o dono é definido pelo token | Apenas o próprio registro |
 | `/api/reviews/` | Apenas as próprias avaliações | Usuário autenticado; o dono é definido pelo token | Apenas a própria avaliação |
 | `/api/trending/` | Usuário autenticado | Administrador (`is_staff`) | Administrador (`is_staff`) |
@@ -97,6 +98,8 @@ Criações bem-sucedidas retornam `201`, consultas e atualizações retornam `20
 |---|---|---|
 | `GET` | `/api/books/` | Lista livros do catálogo |
 | `POST` | `/api/books/` | Cadastra um livro |
+| `GET` | `/api/books/discover/?search=...` | Busca no catálogo MyBooks e no Google Books |
+| `POST` | `/api/books/import/` | Importa metadados de uma obra escolhida |
 | `GET` | `/api/books/{id}/` | Consulta um livro |
 | `PUT`, `PATCH` | `/api/books/{id}/` | Atualiza um livro (administrador) |
 | `DELETE` | `/api/books/{id}/` | Remove um livro (administrador) |
@@ -118,6 +121,10 @@ Exemplo de criação:
 `title` e `author` são obrigatórios. `synopsis`, `genre`, `total_pages`, `cover_url` e `publication_date` são opcionais. `total_pages`, quando informado, deve ser maior que zero. A data usa `AAAA-MM-DD`. O catálogo rejeita livros com título e autor iguais, sem diferenciar maiúsculas de minúsculas.
 
 A resposta de livro inclui `id`, esses campos e `created_at` em formato ISO 8601.
+
+A busca online recebe `search`, `genre` e `page`. Ela consulta os livros locais e o Google Books; quando a chave do Google não está configurada ou não há resultados, usa o Open Library como alternativa. Resultados duplicados são combinados por título e autor. Configure `GOOGLE_BOOKS_API_KEY` no backend para ativar a fonte principal; a chave nunca é enviada ao navegador. A rota de busca apenas consulta os catálogos: não grava resultados no banco.
+
+Quando a pessoa escolhe uma obra online, o frontend envia `POST /api/books/import/`. Para Google Books, o corpo contém `{"provider":"google_books","source_id":"ID_DO_VOLUME"}`; para Open Library, contém `provider`, `source_id` e os metadados normalizados do resultado. O backend valida e cria ou reutiliza o registro local. Em seguida, o frontend adiciona esse `book_id` à biblioteca pessoal ou compartilhada. Isso elimina o cadastro manual prévio; os metadados só entram no banco depois da escolha, pois o progresso e as estantes do MyBooks precisam referenciar uma obra local. As fontes são as APIs de [Google Books](https://developers.google.com/books/docs/v1/using) e [Open Library](https://openlibrary.org/dev/docs/api/search).
 
 ### Progresso de leitura
 

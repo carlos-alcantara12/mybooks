@@ -11,6 +11,8 @@
 
 O modo local usa SQLite e uma chave de desenvolvimento. Não use essa chave em produção. As migrações do app `Backend` ficam versionadas em `migrations/`; crie novas migrações com `python manage.py makemigrations Backend` após alterar os modelos.
 
+A busca online consulta primeiro o Google Books e usa o Open Library quando a chave do Google não está configurada ou a busca não encontra obras. Crie uma chave restrita ao Google Books API e configure `GOOGLE_BOOKS_API_KEY` no ambiente do backend para usar a fonte principal; não coloque a chave no frontend nem a versione no Git. O Open Library funciona sem chave. Para identificar o projeto em uso frequente, configure `OPEN_LIBRARY_CONTACT_EMAIL` com um endereço de contato válido.
+
 ## Testes automatizados
 
 Com o ambiente virtual ativo e `DJANGO_DEBUG=true`, execute `python manage.py test Backend.tests`. Os testes usam o banco temporário do Django e cobrem autenticação, isolamento de dados, duplicidades, regras de avaliação e permissões de tendências.

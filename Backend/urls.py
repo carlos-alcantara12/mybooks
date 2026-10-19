@@ -2,8 +2,10 @@ from rest_framework.routers import DefaultRouter
 from django.urls import include, path
 from .views import (
     BookViewSet,
+    BookDiscoveryView,
     CurrentUserView,
     HealthCheckView,
+    ImportExternalBookView,
     LibraryEntryViewSet,
     MailboxView,
     RegisterView,
@@ -31,6 +33,8 @@ router.register("shared-invitations", SharedLibraryInvitationViewSet, basename="
 router.register("shared-removal-requests", SharedBookRemovalRequestViewSet, basename="shared-removal-request")
 
 urlpatterns = [
+    path("books/discover/", BookDiscoveryView.as_view(), name="book-discovery"),
+    path("books/import/", ImportExternalBookView.as_view(), name="book-import"),
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/me/", CurrentUserView.as_view(), name="current-user"),
     path("health/", HealthCheckView.as_view(), name="health"),
