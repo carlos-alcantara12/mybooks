@@ -119,32 +119,57 @@ function WelcomeScreen({ onContinue }) {
       </div>
 
       <section className="welcome-content" aria-label="Boas-vindas">
-        <div className="brand-lockup" aria-label="MyBooks">
-          <h1 className="brand-name" aria-label="MyBooks">
-            <svg className="brand-name__svg" viewBox="0 0 720 180" aria-hidden="true" focusable="false">
-              <text className="brand-name__letters" x="360" y="132" textAnchor="middle">MyBooks</text>
-            </svg>
-          </h1>
-          <svg className="brand-flourish" viewBox="0 0 320 22" aria-hidden="true">
-            <path d="M5 12 C73 4 106 20 158 12 S246 5 315 11" />
-            <path d="M152 12 C157 5 163 5 168 12 C164 18 158 18 152 12Z" />
-          </svg>
+        <div className="welcome-overline">
+          <span className="welcome-overline__rule" aria-hidden="true" />
+          <span>biblioteca digital pessoal</span>
+          <span className="welcome-overline__edition">edição 01 · 2026</span>
         </div>
 
-        <p className="welcome-description">
-          Organize sua biblioteca, acompanhe seu progresso e descubra novas obras.
-        </p>
+        <div className="welcome-layout">
+          <div className="welcome-brand-column">
+            <div className="brand-lockup" aria-label="MyBooks">
+              <h1 className="brand-name" aria-label="MyBooks">
+                <svg className="brand-name__svg" viewBox="0 0 720 180" aria-hidden="true" focusable="false">
+                  <text className="brand-name__letters" x="360" y="132" textAnchor="middle">MyBooks</text>
+                </svg>
+              </h1>
+              <svg className="brand-flourish" viewBox="0 0 320 22" aria-hidden="true">
+                <path d="M5 12 C73 4 106 20 158 12 S246 5 315 11" />
+                <path d="M152 12 C157 5 163 5 168 12 C164 18 158 18 152 12Z" />
+              </svg>
+            </div>
+            <p className="welcome-brand-note">Um lugar para guardar as histórias que continuam com você.</p>
+          </div>
 
-        <blockquote className="literary-quote" key={quote.text}>
-          <span className="quote-mark" aria-hidden="true">“</span>
-          <p>{quote.text}</p>
-          <footer><cite>— {quote.work}, {quote.author}</cite></footer>
-        </blockquote>
+          <div className="welcome-reading-note">
+            <p className="welcome-reading-note__kicker">abra uma nova página</p>
+            <p className="welcome-description">
+              Organize sua biblioteca, acompanhe seu progresso e descubra novas obras.
+            </p>
 
-        <button className="enter-prompt" type="button" onClick={(event) => { event.stopPropagation(); handleContinue(); }}>
-          <span>Acessar o MyBooks</span>
-          <span className="enter-prompt__arrow" aria-hidden="true">↓</span>
-        </button>
+            <blockquote className="literary-quote" key={quote.text}>
+              <span className="quote-mark" aria-hidden="true">“</span>
+              <p>{quote.text}</p>
+              <footer><cite>— {quote.work}, {quote.author}</cite></footer>
+            </blockquote>
+
+            <div className="welcome-action-group">
+              <button className="enter-prompt" type="button" onClick={(event) => { event.stopPropagation(); handleContinue(); }}>
+                <span>abrir minha biblioteca</span>
+                <span className="enter-prompt__arrow" aria-hidden="true">↗</span>
+              </button>
+              <span className="welcome-action-hint">clique, toque ou pressione Enter</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="welcome-footer-note" aria-hidden="true">
+          <span>estante pessoal</span>
+          <i />
+          <span>progresso de leitura</span>
+          <i />
+          <span>leituras compartilhadas</span>
+        </div>
       </section>
     </main>
   );
@@ -183,7 +208,7 @@ async function getLibraryPage(path, token, onToken, signal) {
 function statusLabel(status) {
   return {
     WANT_TO_READ: "Desejos",
-    READING: "Não lidos",
+    READING: "Lendo",
     READ: "Já lidos",
   }[status] || status;
 }
@@ -347,7 +372,7 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
                 Categoria
                 <select value={status} onChange={(event) => setStatus(event.target.value)}>
                   <option value="WANT_TO_READ">Desejos</option>
-                  <option value="READING">Não lidos</option>
+                  <option value="READING">Lendo</option>
                   <option value="READ">Já lidos</option>
                 </select>
               </label>
@@ -599,7 +624,7 @@ function ReadingProgressView({ accessToken, onToken }) {
   }, [accessToken, onToken, refreshCount]);
 
   return (
-    <section className="reading-progress-view explore-view" aria-labelledby="reading-progress-title">
+    <section id="library-content" className="reading-progress-view explore-view" aria-labelledby="reading-progress-title" aria-busy={loading}>
       <div className="explore-heading">
         <div>
           <p className="library-kicker">cada página conta</p>
@@ -608,7 +633,7 @@ function ReadingProgressView({ accessToken, onToken }) {
         </div>
       </div>
       {error && <p className="library-error" role="alert">{error}</p>}
-      {loading ? <p className="library-feedback">reunindo suas leituras…</p> : stats ? (
+      {loading ? <p className="library-feedback" role="status">reunindo suas leituras…</p> : stats ? (
         <>
           <ReadingTimer accessToken={accessToken} onToken={onToken} todayMinutes={stats.daily?.at(-1)?.minutes || 0} onSessionStopped={() => setRefreshCount((count) => count + 1)} />
           <section className="reading-summary" aria-label="Resumo deste período">
@@ -659,6 +684,9 @@ function SharedLibrariesView({ accessToken, onToken, username, onUnreadChange })
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const letterDialogRef = useRef(null);
+  const letterCloseRef = useRef(null);
+  const letterReturnFocusRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -687,6 +715,40 @@ function SharedLibrariesView({ accessToken, onToken, username, onUnreadChange })
   const unread = invitations.filter((item) => item.recipient === activeUsername && item.status === "PENDING" && !item.opened_at).length
     + requests.filter((item) => item.recipient === activeUsername && item.status === "PENDING" && !item.opened_at).length;
   useEffect(() => { onUnreadChange(unread); }, [unread, onUnreadChange]);
+
+  useEffect(() => {
+    if (!letter) return undefined;
+    const previousFocus = letterReturnFocusRef.current;
+    letterCloseRef.current?.focus();
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setLetter(null);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [...(letterDialogRef.current?.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+      ) || [])];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, [letter]);
+
   const reload = () => setRefresh((value) => value + 1);
 
   async function act(path, options, message) {
@@ -720,6 +782,7 @@ function SharedLibrariesView({ accessToken, onToken, username, onUnreadChange })
   }
 
   async function openLetter(kind, item) {
+    letterReturnFocusRef.current = document.activeElement;
     setLetter({ kind, id: item.id });
     if (item.opened_at) return;
     const path = kind === "invite" ? `/shared-invitations/${item.id}/open/` : `/shared-removal-requests/${item.id}/open/`;
@@ -779,7 +842,7 @@ function SharedLibrariesView({ accessToken, onToken, username, onUnreadChange })
   }
 
   return (
-    <section className="shared-view explore-view" aria-labelledby="shared-title">
+    <section id="library-content" className="shared-view explore-view" aria-labelledby="shared-title" aria-busy={loading}>
       <div className="explore-heading"><div><p className="library-kicker">leituras em companhia</p><h1 id="shared-title">Biblioteca compartilhada.</h1><p className="explore-intro">Monte uma estante com outra pessoa e acompanhem o progresso de cada um.</p></div><button className="shared-mailbox-button" type="button" onClick={() => document.getElementById("shared-mailbox")?.scrollIntoView({ behavior: "smooth" })}>Correio{unread > 0 && <span>{unread}</span>}</button></div>
       {error && <p className="library-error" role="alert">{error}</p>}{notice && <p className="shared-notice" role="status">{notice}</p>}
       <div className="shared-setup-grid">
@@ -788,7 +851,7 @@ function SharedLibrariesView({ accessToken, onToken, username, onUnreadChange })
       </div>
 
       <section className="shared-mailbox" id="shared-mailbox" aria-labelledby="shared-mailbox-title"><div className="shared-section-heading"><div><p className="library-kicker">correio interno</p><h2 id="shared-mailbox-title">Cartas e notificações</h2></div><span>{unread ? `${unread} não lida${unread === 1 ? "" : "s"}` : "em dia"}</span></div>
-        {loading ? <p className="library-feedback">buscando suas cartas…</p> : <div className="shared-letter-list">
+        {loading ? <p className="library-feedback" role="status">buscando suas cartas…</p> : <div className="shared-letter-list">
           {invitations.map((item) => <button type="button" key={`i-${item.id}`} className={`shared-letter-teaser${!item.opened_at ? " is-unread" : ""}`} onClick={() => openLetter("invite", item)}><span className="shared-envelope" aria-hidden="true"><i /></span><span><strong>{item.recipient === activeUsername && item.status === "PENDING" ? "Convite recebido" : "Convite de biblioteca"}</strong><small>{item.shared_library.name} · {item.recipient === activeUsername ? `de ${item.sender}` : `para ${item.recipient}`}</small></span><em>{item.status === "PENDING" ? "pendente" : item.status === "ACCEPTED" ? "aceito" : "recusado"}</em></button>)}
           {requests.map((item) => <button type="button" key={`r-${item.id}`} className={`shared-letter-teaser${!item.opened_at ? " is-unread" : ""}`} onClick={() => openLetter("remove", item)}><span className="shared-envelope shared-envelope--notice" aria-hidden="true"><i /></span><span><strong>{item.recipient === activeUsername ? "Pedido de remoção" : "Seu pedido de remoção"}</strong><small>{item.book_title} · {item.shared_library_name || "biblioteca"}</small></span><em>{item.status === "PENDING" ? "pendente" : item.status === "APPROVED" ? "aprovado" : "recusado"}</em></button>)}
           {!invitations.length && !requests.length && <p className="shared-empty">Seu correio está vazio por enquanto.</p>}
@@ -805,14 +868,14 @@ function SharedLibrariesView({ accessToken, onToken, username, onUnreadChange })
             const edit = own ? edits[own.id] || { status: own.status, pages_read: own.pages_read } : null;
             const pending = requests.some((request) => request.shared_book_id === item.id && request.status === "PENDING");
             return <article className="shared-book-card" key={item.id}>{item.book.cover_url ? <img src={item.book.cover_url} alt={`Capa de ${item.book.title}`} onError={(event) => { event.currentTarget.hidden = true; }} /> : <div className="shared-book-card__cover">{item.book.title.slice(0, 1)}</div>}<div className="shared-book-card__body"><p className="library-kicker">adicionado por {item.added_by}</p><h4>{item.book.title}</h4><p>{item.book.author}</p><ul>{item.reading_states.map((state) => <li key={state.id}><span>{state.username}</span><small>{statusLabel(state.status)} · {state.pages_read}{item.book.total_pages ? `/${item.book.total_pages}` : ""} páginas</small></li>)}</ul>
-              {own && <form className="shared-progress-form" onSubmit={(event) => { event.preventDefault(); saveProgress(item); }}><label>Seu status<select value={edit.status} onChange={(event) => setEdits((current) => ({ ...current, [own.id]: { ...edit, status: event.target.value } }))}><option value="WANT_TO_READ">Desejos</option><option value="READING">Não lidos</option><option value="READ">Já lidos</option></select></label><label>Páginas<input type="number" min="0" max={item.book.total_pages || undefined} value={edit.pages_read} onChange={(event) => setEdits((current) => ({ ...current, [own.id]: { ...edit, pages_read: event.target.value } }))} /></label><button type="submit" disabled={busy}>salvar meu progresso</button></form>}
+              {own && <form className="shared-progress-form" onSubmit={(event) => { event.preventDefault(); saveProgress(item); }}><label>Seu status<select value={edit.status} onChange={(event) => setEdits((current) => ({ ...current, [own.id]: { ...edit, status: event.target.value } }))}><option value="WANT_TO_READ">Desejos</option><option value="READING">Lendo</option><option value="READ">Já lidos</option></select></label><label>Páginas<input type="number" min="0" max={item.book.total_pages || undefined} value={edit.pages_read} onChange={(event) => setEdits((current) => ({ ...current, [own.id]: { ...edit, pages_read: event.target.value } }))} /></label><button type="submit" disabled={busy}>salvar meu progresso</button></form>}
               <button className="shared-remove-button" type="button" disabled={busy || (item.added_by !== activeUsername && pending)} onClick={() => removeBook(item)}>{item.added_by === activeUsername ? "remover da estante" : pending ? "aguardando autorização" : "pedir remoção da obra"}</button>
             </div></article>;
           })}</div> : <p className="shared-empty">Esta estante ainda não tem obras. Busque uma no catálogo para adicioná-la.</p>}
         </div>}
       </section>
 
-      {(activeInvitation || activeRequest) && <div className="shared-letter-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setLetter(null); }}><article className="shared-letter-open" role="dialog" aria-modal="true" aria-labelledby="shared-letter-title"><button className="shared-letter-close" type="button" onClick={() => setLetter(null)} aria-label="Fechar carta">×</button><div className="shared-letter-open__envelope" aria-hidden="true"><span /></div><div className="shared-letter-open__paper"><p className="library-kicker">uma carta para você</p>
+      {(activeInvitation || activeRequest) && <div className="shared-letter-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setLetter(null); }}><article ref={letterDialogRef} className="shared-letter-open" role="dialog" aria-modal="true" aria-labelledby="shared-letter-title"><button ref={letterCloseRef} className="shared-letter-close" type="button" onClick={() => setLetter(null)} aria-label="Fechar carta">×</button><div className="shared-letter-open__envelope" aria-hidden="true"><span /></div><div className="shared-letter-open__paper"><p className="library-kicker">uma carta para você</p>
         {activeInvitation ? <><h2 id="shared-letter-title">Convite para ler em conjunto</h2><p><strong>{activeInvitation.sender}</strong> convidou você para a biblioteca <strong>{activeInvitation.shared_library.name}</strong>.</p><p>Participantes: {activeInvitation.shared_library.members.join(" · ")}</p>{activeInvitation.recipient === activeUsername && activeInvitation.status === "PENDING" && <div className="shared-letter-actions"><button type="button" disabled={busy} onClick={() => respond("decline")}>recusar</button><button type="button" disabled={busy} onClick={() => respond("accept")}>aceitar convite</button></div>}{activeInvitation.status !== "PENDING" && <p>Este convite foi {activeInvitation.status === "ACCEPTED" ? "aceito" : "recusado"}.</p>}</> : activeRequest && <><h2 id="shared-letter-title">Pedido para remover uma obra</h2><p><strong>{activeRequest.requested_by}</strong> pediu autorização para remover <strong>{activeRequest.book_title}</strong> da biblioteca <strong>{activeRequest.shared_library_name}</strong>.</p>{activeRequest.recipient === activeUsername && activeRequest.status === "PENDING" && <div className="shared-letter-actions"><button type="button" disabled={busy} onClick={() => respond("deny")}>manter na estante</button><button type="button" disabled={busy} onClick={() => respond("approve")}>autorizar remoção</button></div>}{activeRequest.status !== "PENDING" && <p>Pedido {activeRequest.status === "APPROVED" ? "aprovado" : "recusado"}.</p>}</>}
       </div></article></div>}
     </section>
@@ -913,17 +976,8 @@ function CatalogExplorer({ accessToken, onToken }) {
   }
 
   return (
-    <section className="explore-view" aria-labelledby="explore-title">
-      <div className="explore-heading">
-        <div>
-          <p className="library-kicker">amplie sua coleção</p>
-          <h1 id="explore-title">Encontre sua próxima leitura.</h1>
-          <p className="explore-intro">Busque por título, autor ou gênero e descubra novas histórias para sua estante.</p>
-        </div>
-        {(submittedSearch || submittedGenre) && <p className="explore-count">{totalBooks} {totalBooks === 1 ? "resultado nesta página" : "resultados nesta página"}</p>}
-      </div>
-
-      <form className="explore-search" onSubmit={submitSearch}>
+    <section id="library-content" className="explore-view" aria-labelledby="explore-title" aria-busy={loading}>
+      <form className="explore-search" onSubmit={submitSearch} aria-label="Buscar livros no catálogo">
         <label className="explore-search__query">
           <span>Obra ou autor</span>
           <span className="search-input-wrap">
@@ -937,6 +991,15 @@ function CatalogExplorer({ accessToken, onToken }) {
         </label>
         <button className="library-primary-button" type="submit" disabled={loading}>{loading ? "buscando…" : "buscar obras"}</button>
       </form>
+
+      <div className="explore-heading">
+        <div>
+          <p className="library-kicker">amplie sua coleção</p>
+          <h1 id="explore-title">Encontre sua próxima leitura.</h1>
+          <p className="explore-intro">Busque por título, autor ou gênero e descubra novas histórias para sua estante.</p>
+        </div>
+        {(submittedSearch || submittedGenre) && <p className="explore-count">{totalBooks} {totalBooks === 1 ? "resultado nesta página" : "resultados nesta página"}</p>}
+      </div>
 
       {error && <p className="library-error explore-error" role="alert">{error}</p>}
       {loading ? (
@@ -968,7 +1031,7 @@ function CatalogExplorer({ accessToken, onToken }) {
                       <span>Adicionar como</span>
                       <select value={categories[book.id] || "WANT_TO_READ"} disabled={Boolean(addedBooks[book.id])} onChange={(event) => setCategories((current) => ({ ...current, [book.id]: event.target.value }))}>
                         <option value="WANT_TO_READ">Desejos</option>
-                        <option value="READING">Não lidos</option>
+                        <option value="READING">Lendo</option>
                         <option value="READ">Já lidos</option>
                       </select>
                     </label>
@@ -1028,6 +1091,22 @@ function LibraryLanding({ onReturn }) {
   const [error, setError] = useState("");
 
   useEffect(() => () => window.clearTimeout(bookTransitionTimerRef.current), []);
+
+  useEffect(() => {
+    if (!accessToken) {
+      setNavUnread(0);
+      return undefined;
+    }
+    let active = true;
+    catalogRequest("/mailbox/", accessToken, setAccessToken)
+      .then((data) => {
+        if (active) setNavUnread(Number(data.unread_count) || 0);
+      })
+      .catch(() => {
+        // The shared view can still show the mailbox if this badge request fails.
+      });
+    return () => { active = false; };
+  }, [accessToken]);
 
   function openBook(entry) {
     window.clearTimeout(bookTransitionTimerRef.current);
@@ -1155,7 +1234,8 @@ function LibraryLanding({ onReturn }) {
   }
 
   return (
-    <main className={`library-landing${accessToken ? " has-navigation" : ""}`}>
+    <main id="library-main" className={`library-landing${accessToken ? " has-navigation" : ""}`}>
+      {accessToken && <a className="skip-link" href="#library-content">Pular para o conteúdo</a>}
       <header className={`library-header${accessToken ? "" : " library-header--login"}`}>
         <a className="library-wordmark" href="#inicio" onClick={(event) => { event.preventDefault(); onReturn(); }}>
           MyBooks<span aria-hidden="true">.</span>
@@ -1166,10 +1246,10 @@ function LibraryLanding({ onReturn }) {
       </header>
       {accessToken && <nav className="library-navigation" aria-label="Navegação principal">
         <p className="library-navigation__label">Seu espaço</p>
-        <button aria-current={activeView === "library" ? "page" : undefined} className={activeView === "library" ? "is-active" : ""} type="button" onClick={() => setActiveView("library")}><span className="library-navigation__icon" aria-hidden="true">▤</span><span>Minha biblioteca</span></button>
-        <button aria-current={activeView === "explore" ? "page" : undefined} className={activeView === "explore" ? "is-active" : ""} type="button" onClick={() => setActiveView("explore")}><span className="library-navigation__icon" aria-hidden="true">⌕</span><span>Explorar obras</span></button>
-        <button aria-current={activeView === "progress" ? "page" : undefined} className={activeView === "progress" ? "is-active" : ""} type="button" onClick={() => setActiveView("progress")}><span className="library-navigation__icon" aria-hidden="true">↗</span><span>Progresso</span></button>
-        <button aria-current={activeView === "shared" ? "page" : undefined} className={activeView === "shared" ? "is-active" : ""} type="button" onClick={() => setActiveView("shared")}><span className="library-navigation__icon" aria-hidden="true">✉</span><span>Compartilhada</span>{navUnread > 0 && <span className="library-navigation__badge" aria-label={`${navUnread} cartas não lidas`}>{navUnread > 9 ? "9+" : navUnread}</span>}</button>
+        <button aria-label="Minha biblioteca" aria-current={activeView === "library" ? "page" : undefined} className={activeView === "library" ? "is-active" : ""} type="button" onClick={() => setActiveView("library")}><span className="library-navigation__text--long">Minha biblioteca</span><span className="library-navigation__text--short" aria-hidden="true">Biblioteca</span></button>
+        <button aria-label="Explorar obras" aria-current={activeView === "explore" ? "page" : undefined} className={activeView === "explore" ? "is-active" : ""} type="button" onClick={() => setActiveView("explore")}><span className="library-navigation__text--long">Explorar obras</span><span className="library-navigation__text--short" aria-hidden="true">Explorar</span></button>
+        <button aria-label="Progresso" aria-current={activeView === "progress" ? "page" : undefined} className={activeView === "progress" ? "is-active" : ""} type="button" onClick={() => setActiveView("progress")}><span>Progresso</span></button>
+        <button aria-label="Biblioteca compartilhada" aria-current={activeView === "shared" ? "page" : undefined} className={activeView === "shared" ? "is-active" : ""} type="button" onClick={() => setActiveView("shared")}><span className="library-navigation__text--long">Compartilhada</span><span className="library-navigation__text--short" aria-hidden="true">Juntos</span>{navUnread > 0 && <span className="library-navigation__badge" aria-label={`${navUnread} cartas não lidas`}>{navUnread > 9 ? "9+" : navUnread}</span>}</button>
       </nav>}
       {!accessToken ? (
         <div className="login-layout">
@@ -1236,15 +1316,7 @@ function LibraryLanding({ onReturn }) {
       ) : activeView === "shared" ? (
         <SharedLibrariesView accessToken={accessToken} onToken={setAccessToken} username={username || window.localStorage.getItem("mybooks:username") || ""} onUnreadChange={setNavUnread} />
       ) : (
-        <section className="personal-library" aria-labelledby="library-title">
-          <div className="personal-library__heading">
-            <div>
-              <p className="library-kicker">sua coleção pessoal</p>
-              <h1 id="library-title">Biblioteca</h1>
-            </div>
-            <p className="library-count">{totalEntries} {totalEntries === 1 ? "livro" : "livros"}</p>
-          </div>
-
+        <section id="library-content" className="personal-library" aria-labelledby="library-title" aria-busy={loading}>
           <form className="library-filters" onSubmit={applyFilters}>
             <div className="library-filters__fields">
               <label className="filter-search">
@@ -1288,8 +1360,16 @@ function LibraryLanding({ onReturn }) {
             </div>
           </form>
 
+          <div className="personal-library__heading">
+            <div>
+              <p className="library-kicker">sua coleção pessoal</p>
+              <h1 id="library-title">Biblioteca</h1>
+            </div>
+            <p className="library-count">{totalEntries} {totalEntries === 1 ? "livro" : "livros"}</p>
+          </div>
+
           {error && <p className="library-error" role="alert">{error}</p>}
-          {loading ? <p className="library-feedback">abrindo seus livros…</p> : entries.length ? (
+          {loading ? <p className="library-feedback" role="status">abrindo seus livros…</p> : entries.length ? (
             <div className="bookshelf" aria-label="Estante da sua biblioteca">
               {groupIntoShelves(entries).map((shelf, shelfIndex) => (
                 <section className="bookshelf-row" key={`shelf-${shelfIndex}`} aria-label={`Prateleira ${shelfIndex + 1}`}>
@@ -1306,6 +1386,7 @@ function LibraryLanding({ onReturn }) {
                           type="button"
                           aria-haspopup="dialog"
                           aria-label={`Abrir ${entry.book.title}, de ${entry.book.author}. ${statusLabel(entry.status)}.`}
+                          title={`${entry.book.title} — ${entry.book.author}`}
                           style={{ "--spine-color": color, "--book-height": `${height}px`, "--book-index": bookIndex }}
                           onClick={() => openBook(entry)}
                         >
@@ -1329,6 +1410,7 @@ function LibraryLanding({ onReturn }) {
               <p className="library-empty-state__ornament" aria-hidden="true">✦</p>
               <h2>{submittedSearch || submittedGenre || submittedStatus ? "Nenhum livro corresponde aos filtros." : "Sua estante ainda está vazia."}</h2>
               <p>{submittedSearch || submittedGenre || submittedStatus ? "Tente outra busca ou remova algum filtro." : "Os livros que você adicionar aparecerão aqui."}</p>
+              {!submittedSearch && !submittedGenre && !submittedStatus && <button className="library-empty-state__action" type="button" onClick={() => setActiveView("explore")}>explorar catálogo</button>}
             </div>
           )}
 
