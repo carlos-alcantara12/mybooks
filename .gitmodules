@@ -1,0 +1,3 @@
+[submodule "skils/secure-code-auditor"]
+	path = skils/secure-code-auditor
+	url = https://github.com/n-shadloo/secure-code-auditor.git
