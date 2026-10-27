@@ -3,9 +3,12 @@ import { Alert, AlertDescription } from "./components/ui/alert";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./components/ui/card";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHandle } from "./components/ui/drawer";
 import { Field, FieldDescription, FieldLabel } from "./components/ui/field";
 import { Input } from "./components/ui/input";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "./components/ui/pagination";
+import { Progress } from "./components/ui/progress";
 import { Skeleton } from "./components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
 
@@ -349,7 +352,8 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
 
   return (
     <div className={`book-dialog-backdrop${isClosing ? " is-closing" : ""}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section ref={dialogRef} className={`book-dialog${isClosing ? " is-closing" : ""}`} role="dialog" aria-modal="true" aria-labelledby="book-dialog-title">
+      <Dialog className="book-dialog__root">
+        <DialogContent ref={dialogRef} className={"book-dialog" + (isClosing ? " is-closing" : "")} role="dialog" aria-modal="true" aria-labelledby="book-dialog-title">
         <button ref={closeButtonRef} className="book-dialog__close" type="button" onClick={onClose} aria-label="Fechar livro e voltar à estante">×</button>
         <div className="book-dialog__book-open">
           <div className="book-dialog__cover-page">
@@ -403,7 +407,8 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
             {error && <p className="book-dialog__error" role="alert">{error}</p>}
           </div>
         </div>
-      </section>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
