@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, AlertDescription } from "./components/ui/alert";
+import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./components/ui/card";
 import { Field, FieldDescription, FieldLabel } from "./components/ui/field";
 import { Input } from "./components/ui/input";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "./components/ui/pagination";
+import { Skeleton } from "./components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
 
 const quotes = [
   { text: "Só se vê bem com o coração, o essencial é invisível aos olhos.", work: "O Pequeno Príncipe", author: "Antoine de Saint-Exupéry" },
@@ -1125,7 +1129,7 @@ function LibraryLanding({ onReturn }) {
     bookTransitionTimerRef.current = window.setTimeout(() => {
       setOpenedEntry(entry);
       bookTransitionTimerRef.current = null;
-    }, 320);
+    }, 180);
   }
 
   const closeBook = useCallback(() => {
@@ -1346,27 +1350,31 @@ function LibraryLanding({ onReturn }) {
               </div>
             </div>
 
-            <div className="library-category-bar" role="group" aria-label="Filtrar estante por categoria">
+            <Tabs
+              className="library-category-tabs"
+              value={submittedStatus}
+              onValueChange={(value) => applyCategory(value)}
+            >
+              <div className="library-category-bar">
               <span className="library-category-bar__label">Mostrar</span>
-              <div className="library-category-bar__tabs">
+              <TabsList className="library-category-bar__tabs" aria-label="Filtrar estante por categoria">
                 {[
                   { label: "Todos", value: "" },
                   { label: "Desejos", value: "WANT_TO_READ" },
                   { label: "Lendo", value: "READING" },
                   { label: "Já lidos", value: "READ" },
                 ].map((category) => (
-                  <button
+                  <TabsTrigger
                     className={`library-category-tab${submittedStatus === category.value ? " is-active" : ""}`}
                     key={category.value || "all"}
-                    type="button"
-                    aria-pressed={submittedStatus === category.value}
-                    onClick={() => applyCategory(category.value)}
+                    value={category.value}
                   >
                     {category.label}
-                  </button>
+                  </TabsTrigger>
                 ))}
+              </TabsList>
               </div>
-            </div>
+            </Tabs>
           </form>
 
           <div className="personal-library__heading">
@@ -1374,11 +1382,23 @@ function LibraryLanding({ onReturn }) {
               <p className="library-kicker">sua coleção pessoal</p>
               <h1 id="library-title">Biblioteca</h1>
             </div>
-            <p className="library-count">{totalEntries} {totalEntries === 1 ? "livro" : "livros"}</p>
+            <p className="library-count">
+              <Badge variant="outline">{totalEntries} {totalEntries === 1 ? "livro" : "livros"}</Badge>
+            </p>
           </div>
 
           {error && <p className="library-error" role="alert">{error}</p>}
-          {loading ? <p className="library-feedback" role="status">abrindo seus livros…</p> : entries.length ? (
+          {loading ? (
+            <div className="bookshelf bookshelf--loading" role="status" aria-label="Carregando sua biblioteca">
+              <div className="bookshelf-row">
+                <div className="bookshelf-books">
+                  {Array.from({ length: 6 }, (_, index) => <Skeleton className="skeleton-volume" key={index} />)}
+                </div>
+                <div className="bookshelf-plank" aria-hidden="true"><span /></div>
+              </div>
+              <p className="bookshelf-hint">abrindo seus livros…</p>
+            </div>
+          ) : entries.length ? (
             <div className="bookshelf" aria-label="Estante da sua biblioteca">
               {groupIntoShelves(entries).map((shelf, shelfIndex) => (
                 <section className="bookshelf-row" key={`shelf-${shelfIndex}`} aria-label={`Prateleira ${shelfIndex + 1}`}>
@@ -1424,11 +1444,19 @@ function LibraryLanding({ onReturn }) {
           )}
 
           {(hasNext || hasPrevious) && (
-            <nav className="pagination-controls" aria-label="Páginas da biblioteca">
-              <button type="button" disabled={!hasPrevious || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}>anterior</button>
-              <span>página {page}</span>
-              <button type="button" disabled={!hasNext || loading} onClick={() => setPage((value) => value + 1)}>próxima</button>
-            </nav>
+            <Pagination className="pagination-controls" aria-label="Páginas da biblioteca">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious disabled={!hasPrevious || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} />
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationLink active aria-label={"Página " + page} disabled>{page}</PaginationLink>
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext disabled={!hasNext || loading} onClick={() => setPage((value) => value + 1)} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           )}
         </section>
       )}
