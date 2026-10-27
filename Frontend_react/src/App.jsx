@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, AlertDescription } from "./components/ui/alert";
+import { Button } from "./components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./components/ui/card";
+import { Field, FieldDescription, FieldLabel } from "./components/ui/field";
+import { Input } from "./components/ui/input";
 
 const quotes = [
   { text: "Só se vê bem com o coração, o essencial é invisível aos olhos.", work: "O Pequeno Príncipe", author: "Antoine de Saint-Exupéry" },
@@ -1267,47 +1272,51 @@ function LibraryLanding({ onReturn }) {
             <span className="login-story__caption">um capítulo de cada vez</span>
           </aside>
 
-          <section className="login-card" aria-labelledby="library-title">
-            <p className="login-card__eyebrow">{creatingAccount ? "COMECE SUA COLEÇÃO" : "BEM-VINDO DE VOLTA"}</p>
-            <h1 id="library-title">{creatingAccount ? "Sua história começa aqui." : "Que bom ter você de volta."}</h1>
-            <p className="login-card__description">
-              {creatingAccount ? "Crie sua conta e dê um lugar às histórias que você ama." : "Entre para continuar de onde sua última leitura levou você."}
-            </p>
+          <Card as="section" className="login-card" aria-labelledby="library-title">
+            <CardHeader className="login-card__header">
+              <p className="login-card__eyebrow">{creatingAccount ? "COMECE SUA COLEÇÃO" : "BEM-VINDO DE VOLTA"}</p>
+              <CardTitle as="h1" id="library-title">{creatingAccount ? "Sua história começa aqui." : "Que bom ter você de volta."}</CardTitle>
+              <CardDescription className="login-card__description">
+                {creatingAccount ? "Crie sua conta e dê um lugar às histórias que você ama." : "Entre para continuar de onde sua última leitura levou você."}
+              </CardDescription>
+            </CardHeader>
 
-            <form className="login-form" onSubmit={submitAccess}>
-              <label>
-                <span>Nome de usuário</span>
-                <input autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)} />
-              </label>
-              {creatingAccount && (
-                <label>
-                  <span>E-mail</span>
-                  <input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
-                </label>
-              )}
-              <label>
-                <span>Senha</span>
-                <span className="password-field">
-                  <input type={showPassword ? "text" : "password"} autoComplete={creatingAccount ? "new-password" : "current-password"} required minLength={creatingAccount ? 8 : undefined} value={password} onChange={(event) => setPassword(event.target.value)} />
-                  <button type="button" className="password-toggle" onClick={() => setShowPassword((value) => !value)} aria-pressed={showPassword}>
-                    {showPassword ? "Ocultar" : "Mostrar"}
-                  </button>
-                </span>
-                {creatingAccount && <small className="password-hint">Use pelo menos 8 caracteres.</small>}
-              </label>
-              {error && <p className="library-error" role="alert">{error}</p>}
-              <button className="library-primary-button" type="submit" disabled={loading}>
-                {loading ? "aguarde…" : creatingAccount ? "criar minha conta" : "entrar na minha biblioteca"}
-              </button>
-            </form>
+            <CardContent className="login-card__content">
+              <form className="login-form" onSubmit={submitAccess} aria-describedby={error ? "login-error" : undefined}>
+                <Field>
+                  <FieldLabel htmlFor="login-username">Nome de usuário</FieldLabel>
+                  <Input id="login-username" name="username" autoFocus={!creatingAccount} autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)} />
+                </Field>
+                {creatingAccount && (
+                  <Field>
+                    <FieldLabel htmlFor="login-email">E-mail</FieldLabel>
+                    <Input id="login-email" name="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
+                  </Field>
+                )}
+                <Field>
+                  <FieldLabel htmlFor="login-password">Senha</FieldLabel>
+                  <div className="password-field">
+                    <Input id="login-password" name="password" type={showPassword ? "text" : "password"} autoComplete={creatingAccount ? "new-password" : "current-password"} required minLength={creatingAccount ? 8 : undefined} value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby={creatingAccount ? "password-hint" : undefined} />
+                    <Button type="button" variant="ghost" size="sm" className="password-toggle" onClick={() => setShowPassword((value) => !value)} aria-pressed={showPassword}>
+                      {showPassword ? "Ocultar" : "Mostrar"}
+                    </Button>
+                  </div>
+                  {creatingAccount && <FieldDescription id="password-hint" className="password-hint">Use pelo menos 8 caracteres.</FieldDescription>}
+                </Field>
+                {error && <Alert id="login-error" variant="destructive" className="login-alert"><AlertDescription>{error}</AlertDescription></Alert>}
+                <Button className="login-submit-button" type="submit" size="lg" disabled={loading}>
+                  {loading ? "aguarde…" : creatingAccount ? "criar minha conta" : "entrar na minha biblioteca"}
+                </Button>
+              </form>
+            </CardContent>
 
-            <p className="login-switch">
-              {creatingAccount ? "Já tem uma conta?" : "Ainda não tem uma conta?"}
-              <button type="button" onClick={() => { setCreatingAccount((value) => !value); setError(""); }}>
+            <CardFooter className="login-card__footer">
+              <span>{creatingAccount ? "Já tem uma conta?" : "Ainda não tem uma conta?"}</span>
+              <Button variant="link" size="sm" type="button" onClick={() => { setCreatingAccount((value) => !value); setError(""); }}>
                 {creatingAccount ? "Entrar" : "Criar conta"}
-              </button>
-            </p>
-          </section>
+              </Button>
+            </CardFooter>
+          </Card>
         </div>
       ) : activeView === "explore" ? (
         <CatalogExplorer accessToken={accessToken} onToken={setAccessToken} />
