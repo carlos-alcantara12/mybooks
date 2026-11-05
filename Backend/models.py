@@ -94,6 +94,7 @@ class LibraryEntry(models.Model):
     )
     status = models.CharField("status", max_length=12, choices=Status.choices)
     pages_read = models.PositiveIntegerField("páginas lidas", default=0)
+    shelf = models.PositiveIntegerField("estante", default=0)
     added_at = models.DateTimeField("adicionado em", default=timezone.now, editable=False)
 
     def clean(self):
@@ -140,7 +141,7 @@ class LibraryEntry(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["user", "book"], name="unique_user_library_book"),
         ]
-        ordering = ["-added_at"]
+        ordering = ["shelf", "-added_at"]
         verbose_name = "livro na biblioteca"
         verbose_name_plural = "livros na biblioteca"
 

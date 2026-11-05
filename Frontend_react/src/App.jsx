@@ -12,60 +12,42 @@ import { Progress } from "./components/ui/progress";
 import { Skeleton } from "./components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
 
-const quotes = [
-  { text: "Só se vê bem com o coração, o essencial é invisível aos olhos.", work: "O Pequeno Príncipe", author: "Antoine de Saint-Exupéry" },
-  { text: "Tudo vale a pena se a alma não é pequena.", work: "Mensagem", author: "Fernando Pessoa" },
-  { text: "A vida é uma ópera e uma grande ópera.", work: "Dom Casmurro", author: "Machado de Assis" },
-  { text: "Navegar é preciso; viver não é preciso.", work: "Navegar é preciso", author: "Fernando Pessoa" },
-  { text: "Tenho em mim todos os sonhos do mundo.", work: "Tabacaria", author: "Álvaro de Campos" },
-  { text: "Ao vencedor, as batatas!", work: "Quincas Borba", author: "Machado de Assis" },
-  { text: "Para ser grande, sê inteiro: nada teu exagera ou exclui.", work: "Odes", author: "Ricardo Reis" },
-  { text: "Põe quanto és no mínimo que fazes.", work: "Odes", author: "Ricardo Reis" },
-  { text: "O mar salgado, quanto do teu sal são lágrimas de Portugal!", work: "Mar Português", author: "Fernando Pessoa" },
-  { text: "Quem quer passar além do Bojador tem que passar além da dor.", work: "Mar Português", author: "Fernando Pessoa" },
-  { text: "Deus ao mar o perigo e o abismo deu, mas nele é que espelhou o céu.", work: "Mar Português", author: "Fernando Pessoa" },
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
+const WELCOME_QUOTE_KEY = "mybooks:last-welcome-quote";
+const welcomeQuotes = [
+  { text: "Quando certa manhã Gregor Samsa acordou de sonhos intranquilos, encontrou-se em sua cama metamorfoseado num inseto monstruoso.", work: "A metamorfose", author: "Franz Kafka" },
+  { text: "Todos pertencem a todos.", work: "Admirável mundo novo", author: "Aldous Huxley" },
+  { text: "A necessidade é a mãe da invenção.", work: "A República", author: "Platão" },
+  { text: "Guerra é paz. Liberdade é escravidão. Ignorância é força.", work: "1984", author: "George Orwell" },
+  { text: "Todos os animais são iguais, mas alguns são mais iguais que outros.", work: "A revolução dos bichos", author: "George Orwell" },
+  { text: "Meu Deus, um momento inteiro de felicidade! Isso é pouco para uma vida inteira?", work: "Noites brancas", author: "Fiódor Dostoiévski" },
+  { text: "A geografia do Reino Unido não mudou.", work: "O poder da geografia", author: "Tim Marshall" },
 ];
 
-const LAST_QUOTE_KEY = "mybooks:last-welcome-quote";
-const SEEN_QUOTES_KEY = "mybooks:seen-welcome-quotes";
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
-
-function chooseQuote() {
+function chooseWelcomeQuote() {
+  let previousQuote = "";
   try {
-    const stored = JSON.parse(window.localStorage.getItem(SEEN_QUOTES_KEY) || "[]");
-    const seen = Array.isArray(stored) ? stored : [];
-    const lastQuote = window.localStorage.getItem(LAST_QUOTE_KEY);
-    if (lastQuote && !seen.includes(lastQuote)) seen.push(lastQuote);
-    const unseen = quotes.filter((quote) => !seen.includes(quote.text));
-    const choices = unseen.length ? unseen : quotes;
-    return choices[Math.floor(Math.random() * choices.length)];
+    previousQuote = window.localStorage.getItem(WELCOME_QUOTE_KEY) || "";
   } catch {
-    return quotes[Math.floor(Math.random() * quotes.length)];
+    // A seleção aleatória também funciona quando o armazenamento está indisponível.
   }
+
+  const choices = welcomeQuotes.filter((quote) => quote.text !== previousQuote);
+  const selected = choices[Math.floor(Math.random() * choices.length)] || welcomeQuotes[0];
+  try {
+    window.localStorage.setItem(WELCOME_QUOTE_KEY, selected.text);
+  } catch {
+    // A frase continua disponível sem armazenamento local.
+  }
+  return selected;
 }
 
 function WelcomeScreen({ onContinue }) {
   const [isLeaving, setIsLeaving] = useState(false);
   const screenRef = useRef(null);
   const continueTimerRef = useRef(null);
-  const [quote] = useState(chooseQuote);
-
+  const [quote] = useState(chooseWelcomeQuote);
   useEffect(() => () => window.clearTimeout(continueTimerRef.current), []);
-
-  useEffect(() => {
-    try {
-      const stored = JSON.parse(window.localStorage.getItem(SEEN_QUOTES_KEY) || "[]");
-      const seen = Array.isArray(stored) ? stored : [];
-      const updatedSeen = seen.includes(quote.text) ? seen : [...seen, quote.text];
-      window.localStorage.setItem(
-        SEEN_QUOTES_KEY,
-        JSON.stringify(updatedSeen.length >= quotes.length ? [quote.text] : updatedSeen),
-      );
-      window.localStorage.setItem(LAST_QUOTE_KEY, quote.text);
-    } catch {
-      // A quote remains available even when browser storage is disabled.
-    }
-  }, [quote]);
 
   function handleContinue() {
     if (isLeaving) return;
@@ -131,12 +113,6 @@ function WelcomeScreen({ onContinue }) {
       </div>
 
       <section className="welcome-content" aria-label="Boas-vindas">
-        <div className="welcome-overline">
-          <span className="welcome-overline__rule" aria-hidden="true" />
-          <span>biblioteca digital pessoal</span>
-          <span className="welcome-overline__edition">edição 01 · 2026</span>
-        </div>
-
         <div className="welcome-layout">
           <div className="welcome-brand-column">
             <div className="brand-lockup" aria-label="MyBooks">
@@ -150,38 +126,14 @@ function WelcomeScreen({ onContinue }) {
                 <path d="M152 12 C157 5 163 5 168 12 C164 18 158 18 152 12Z" />
               </svg>
             </div>
-            <p className="welcome-brand-note">Um lugar para guardar as histórias que continuam com você.</p>
-          </div>
-
-          <div className="welcome-reading-note">
-            <p className="welcome-reading-note__kicker">abra uma nova página</p>
-            <p className="welcome-description">
-              Organize sua biblioteca, acompanhe seu progresso e descubra novas obras.
-            </p>
-
-            <blockquote className="literary-quote" key={quote.text}>
-              <span className="quote-mark" aria-hidden="true">“</span>
-              <p>{quote.text}</p>
-              <footer><cite>— {quote.work}, {quote.author}</cite></footer>
+            <blockquote className="welcome-literary-quote">
+              <p>“{quote.text}”</p>
+              <footer><cite>{quote.work} · {quote.author}</cite></footer>
             </blockquote>
-
-            <div className="welcome-action-group">
-              <button className="enter-prompt" type="button" onClick={(event) => { event.stopPropagation(); handleContinue(); }}>
-                <span>abrir minha biblioteca</span>
-                <span className="enter-prompt__arrow" aria-hidden="true">↗</span>
-              </button>
-              <span className="welcome-action-hint">clique, toque ou pressione Enter</span>
-            </div>
           </div>
+
         </div>
 
-        <div className="welcome-footer-note" aria-hidden="true">
-          <span>estante pessoal</span>
-          <i />
-          <span>progresso de leitura</span>
-          <i />
-          <span>leituras compartilhadas</span>
-        </div>
       </section>
     </main>
   );
@@ -212,7 +164,16 @@ async function getLibraryPage(path, token, onToken, signal) {
     });
   }
 
-  const data = await response.json();
+  const responseBody = await response.text();
+  let data;
+  try {
+    data = responseBody ? JSON.parse(responseBody) : {};
+  } catch {
+    const apiUrl = `${API_BASE_URL}${path.split("?")[0]}`;
+    throw new Error(
+      `A API respondeu com HTML em ${apiUrl}. Verifique se o servidor encaminha /api/ para o backend Django.`,
+    );
+  }
   if (!response.ok) throw new Error(data.detail || "Não foi possível carregar sua biblioteca.");
   return data;
 }
@@ -225,11 +186,13 @@ function statusLabel(status) {
   }[status] || status;
 }
 
-function groupIntoShelves(items, shelfSize = 6) {
-  const shelves = [];
-  for (let index = 0; index < items.length; index += shelfSize) {
-    shelves.push(items.slice(index, index + shelfSize));
-  }
+const SHELF_CAPACITY = 6;
+
+function groupIntoShelves(items, shelfSize = SHELF_CAPACITY) {
+  const highestShelf = Math.max(0, ...items.map((item) => Math.max(0, Number(item.shelf) || 0)));
+  const shelves = Array.from({ length: highestShelf + 1 }, () => []);
+  items.forEach((item) => shelves[Math.max(0, Number(item.shelf) || 0)]?.push(item));
+  if (shelves[shelves.length - 1]?.length >= shelfSize) shelves.push([]);
   return shelves;
 }
 
@@ -354,7 +317,7 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
     <div className={`book-dialog-backdrop${isClosing ? " is-closing" : ""}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <Dialog className="book-dialog__root">
         <DialogContent ref={dialogRef} className={"book-dialog" + (isClosing ? " is-closing" : "")} role="dialog" aria-modal="true" aria-labelledby="book-dialog-title">
-        <button ref={closeButtonRef} className="book-dialog__close" type="button" onClick={onClose} aria-label="Fechar livro e voltar à estante">×</button>
+        <DialogClose as={Button} ref={closeButtonRef} variant="ghost" size="sm" className="book-dialog__close" type="button" onClick={onClose} aria-label="Fechar livro e voltar à estante">×</DialogClose>
         <div className="book-dialog__book-open">
           <div className="book-dialog__cover-page">
             {book.cover_url && !coverFailed ? <img src={book.cover_url} alt={`Capa de ${book.title}`} onError={() => setCoverFailed(true)} /> : <div className="book-dialog__cover-fallback">{book.title}</div>}
@@ -362,17 +325,36 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
           <div className="book-dialog__page-flips" aria-hidden="true">
             {[0, 1, 2].map((page) => <span key={page} style={{ "--page-index": page }} />)}
           </div>
-          <div className="book-dialog__content-page">
+          <Drawer className="book-dialog__drawer">
+            <DrawerHandle />
+            <DrawerContent className="book-dialog__drawer-content">
+              <div className="book-dialog__content-page">
+            <DialogHeader className="book-dialog__header">
             <p className="book-dialog__eyebrow">sua obra</p>
-            <h2 id="book-dialog-title">{book.title}</h2>
-            <p className="book-dialog__author">{book.author}</p>
+            <DialogTitle id="book-dialog-title">{book.title}</DialogTitle>
+            <DialogDescription className="book-dialog__author">{book.author}</DialogDescription>
             <div className="book-dialog__facts">
               {book.genre && <span>{book.genre}</span>}
               <span>{totalPages ? `${totalPages} páginas` : "Total de páginas não informado"}</span>
               <span>{statusLabel(status)}</span>
             </div>
-            <h3>Sobre a obra</h3>
-            <p className="book-dialog__synopsis">{book.synopsis || "Ainda não há um resumo cadastrado para esta obra."}</p>
+            </DialogHeader>
+            <div className="book-dialog__body">
+            <section className="book-dialog__synopsis-block" aria-labelledby="book-synopsis-title">
+            <div className="book-dialog__section-heading">
+              <p className="book-dialog__section-kicker">contexto</p>
+              <h3 id="book-synopsis-title">Sobre a obra</h3>
+            </div>
+            <p className={`book-dialog__synopsis${book.synopsis ? "" : " is-empty"}`}>{book.synopsis || "O resumo desta edição ainda não foi cadastrado."}</p>
+            </section>
+            <section className="book-dialog__reading-panel" aria-label="Atualizar leitura e avaliação">
+            <div className="book-dialog__section-heading book-dialog__section-heading--reading">
+              <div>
+                <p className="book-dialog__section-kicker">acompanhamento</p>
+                <h3>Sua leitura</h3>
+              </div>
+              {totalPages > 0 && <strong>{progress}%</strong>}
+            </div>
             <form className="book-dialog__reading-form" onSubmit={saveReadingDetails}>
               <label>
                 Páginas lidas
@@ -389,23 +371,25 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
                   <option value="READ">Já lidos</option>
                 </select>
               </label>
-              {totalPages > 0 && <div className="book-dialog__progress" aria-label={`Progresso de leitura: ${progress}%`}>
-                <span style={{ width: `${progress}%` }} />
-              </div>}
+              {totalPages > 0 && <Progress className="book-dialog__progress" value={progress} aria-label={"Progresso de leitura: " + progress + "%"} />}
               {totalPages > 0 && <p className="book-dialog__progress-label">{progress}% da leitura concluída</p>}
-              <button className="library-primary-button" type="submit" disabled={saving}>{saving ? "salvando…" : "salvar progresso"}</button>
+              <Button className="book-dialog__save-button" type="submit" size="sm" disabled={saving}>{saving ? "salvando…" : "salvar progresso"}</Button>
             </form>
             <div className="book-dialog__rating">
               <p>Sua avaliação</p>
               <div role="group" aria-label={status === "READ" ? "Avaliar de 1 a 5 estrelas" : "Avaliação disponível após concluir a leitura"}>
                 {[1, 2, 3, 4, 5].map((value) => (
-                  <button key={value} type="button" aria-label={`${value} ${value === 1 ? "estrela" : "estrelas"}`} aria-pressed={rating === value} disabled={saving || !canRate} onClick={() => saveRating(value)}>{value <= rating ? "★" : "☆"}</button>
+                  <Button key={value} variant="ghost" className="book-dialog__rating-button" type="button" aria-label={`${value} ${value === 1 ? "estrela" : "estrelas"}`} aria-pressed={rating === value} disabled={saving || !canRate} onClick={() => saveRating(value)}>{value <= rating ? "★" : "☆"}</Button>
                 ))}
               </div>
               {!canRate && <small>Salve a leitura completa para avaliar esta obra.</small>}
             </div>
             {error && <p className="book-dialog__error" role="alert">{error}</p>}
-          </div>
+            </section>
+            </div>
+              </div>
+            </DrawerContent>
+          </Drawer>
         </div>
         </DialogContent>
       </Dialog>
@@ -1026,7 +1010,7 @@ function CatalogExplorer({ accessToken, onToken }) {
                 <div className="catalog-card__cover-wrap">
                   {book.cover_url && <img className="catalog-card__cover" src={book.cover_url} alt={`Capa de ${book.title}`} loading="lazy" onError={(event) => { event.currentTarget.hidden = true; event.currentTarget.nextElementSibling.hidden = false; }} />}
                   <div className="catalog-card__cover-fallback" hidden={Boolean(book.cover_url)} aria-hidden="true">
-                    <span>MYBOOKS</span><strong>{book.title}</strong><i>{book.author}</i>
+                    <strong>{book.title}</strong><i>{book.author}</i>
                   </div>
                   <span className="catalog-card__cover-shadow" aria-hidden="true" />
                 </div>
@@ -1102,9 +1086,18 @@ function LibraryLanding({ onReturn }) {
   const [hasPrevious, setHasPrevious] = useState(false);
   const [totalEntries, setTotalEntries] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [movingBookId, setMovingBookId] = useState(null);
+  const [draggedBookId, setDraggedBookId] = useState(null);
+  const [dragOverShelf, setDragOverShelf] = useState(null);
+  const bookDragRef = useRef(null);
+  const suppressBookClickRef = useRef(false);
+  const suppressBookClickTimerRef = useRef(null);
   const [error, setError] = useState("");
 
-  useEffect(() => () => window.clearTimeout(bookTransitionTimerRef.current), []);
+  useEffect(() => () => {
+    window.clearTimeout(bookTransitionTimerRef.current);
+    window.clearTimeout(suppressBookClickTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (!accessToken) {
@@ -1247,8 +1240,103 @@ function LibraryLanding({ onReturn }) {
     setSubmittedStatus(category);
   }
 
+  async function moveBook(entry, targetShelf) {
+    const currentShelf = Math.max(0, Number(entry.shelf) || 0);
+    const shelves = groupIntoShelves(entries);
+    const targetExists = targetShelf >= 0 && targetShelf < shelves.length;
+    const targetHasSpace = targetExists && shelves[targetShelf].length < SHELF_CAPACITY;
+    if (!targetHasSpace || targetShelf === currentShelf) return;
+
+    setMovingBookId(entry.id);
+    setError("");
+    try {
+      const updated = await catalogRequest(`/library/${entry.id}/`, accessToken, setAccessToken, {
+        method: "PATCH",
+        body: JSON.stringify({ shelf: targetShelf }),
+      });
+      setEntries((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setMovingBookId(null);
+    }
+  }
+
+  function shelfAtPoint(x, y) {
+    const row = document.elementFromPoint(x, y)?.closest("[data-shelf-index]");
+    if (!row) return null;
+    const index = Number(row.dataset.shelfIndex);
+    return Number.isInteger(index) ? index : null;
+  }
+
+  function canDropBookOnShelf(entry, targetShelf) {
+    if (targetShelf === null || targetShelf < 0) return false;
+    const currentShelf = Math.max(0, Number(entry.shelf) || 0);
+    const shelves = groupIntoShelves(entries);
+    return targetShelf !== currentShelf
+      && targetShelf < shelves.length
+      && shelves[targetShelf].length < SHELF_CAPACITY;
+  }
+
+  function beginBookDrag(event, entry) {
+    if (event.button !== 0 || movingBookId) return;
+    bookDragRef.current = {
+      entry,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      started: false,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function updateBookDrag(event) {
+    const drag = bookDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag.started && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 8) return;
+    if (!drag.started) {
+      drag.started = true;
+      suppressBookClickRef.current = true;
+      setDraggedBookId(drag.entry.id);
+    }
+    const targetShelf = shelfAtPoint(event.clientX, event.clientY);
+    setDragOverShelf(canDropBookOnShelf(drag.entry, targetShelf) ? targetShelf : null);
+  }
+
+  function finishBookDrag(event) {
+    const drag = bookDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag.started) {
+      const targetShelf = shelfAtPoint(event.clientX, event.clientY);
+      if (canDropBookOnShelf(drag.entry, targetShelf)) void moveBook(drag.entry, targetShelf);
+      suppressBookClickTimerRef.current = window.setTimeout(() => {
+        suppressBookClickRef.current = false;
+      }, 450);
+    }
+    bookDragRef.current = null;
+    setDraggedBookId(null);
+    setDragOverShelf(null);
+  }
+
+  function cancelBookDrag(event) {
+    if (bookDragRef.current?.pointerId !== event.pointerId) return;
+    bookDragRef.current = null;
+    setDraggedBookId(null);
+    setDragOverShelf(null);
+  }
+
+  function openBookUnlessDragged(event, entry) {
+    if (suppressBookClickRef.current) {
+      event.preventDefault();
+      suppressBookClickRef.current = false;
+      window.clearTimeout(suppressBookClickTimerRef.current);
+      return;
+    }
+    openBook(entry);
+  }
+
   return (
-    <main id="library-main" className={`library-landing${accessToken ? " has-navigation" : ""}`}>
+    <main id="library-main" className={`library-landing${accessToken ? " has-navigation library-landing--themed" : ""}${accessToken && activeView === "library" ? " library-landing--personal" : ""}`}>
       {accessToken && <a className="skip-link" href="#library-content">Pular para o conteúdo</a>}
       <header className={`library-header${accessToken ? "" : " library-header--login"}`}>
         <a className="library-wordmark" href="#inicio" onClick={(event) => { event.preventDefault(); onReturn(); }}>
@@ -1268,25 +1356,30 @@ function LibraryLanding({ onReturn }) {
       {!accessToken ? (
         <div className="login-layout">
           <aside className="login-story" aria-label="Uma mensagem sobre leitura">
-            <span className="login-story__eyebrow">MYBOOKS · SUA BIBLIOTECA</span>
-            <div className="login-story__books" aria-hidden="true">
-              <span className="login-book login-book--rust" />
-              <span className="login-book login-book--sage" />
-              <span className="login-book login-book--ochre" />
-              <span className="login-book login-book--plum" />
+            <div className="login-story__art" aria-hidden="true">
+              <svg viewBox="0 0 360 240" role="presentation">
+                <circle className="login-story__orb" cx="180" cy="108" r="91" />
+                <path className="login-story__page" d="M180 195c-37-28-82-37-132-24V54c51-14 96-5 132 24z" />
+                <path className="login-story__page login-story__page--right" d="M180 195c37-28 82-37 132-24V54c-51-14-96-5-132 24z" />
+                <path className="login-story__book-lines" d="M65 79c34-8 66-2 96 16M65 97c32-7 63-2 96 16M65 115c28-5 58 1 88 16M295 79c-34-8-66-2-96 16m96 2c-32-7-63-2-96 16m96 2c-28-5-58 1-88 16" />
+                <path className="login-story__spine" d="M180 78v117m-5-113 5 8 5-8" />
+              </svg>
             </div>
-            <h2>Uma estante guarda mais do que livros.</h2>
-            <p>Guarda os lugares a que cada história levou você.</p>
-            <span className="login-story__rule" aria-hidden="true" />
-            <span className="login-story__caption">um capítulo de cada vez</span>
+            <h2>Histórias que deixam marcas.</h2>
+            <p>Sua coleção, seu ritmo, seu próximo capítulo.</p>
+            <div className="login-story__catalogue" aria-hidden="true">
+              <span>LEITOR · 001</span>
+              <span>DESDE 2026</span>
+            </div>
           </aside>
 
           <Card as="section" className="login-card" aria-labelledby="library-title">
             <CardHeader className="login-card__header">
-              <p className="login-card__eyebrow">{creatingAccount ? "COMECE SUA COLEÇÃO" : "BEM-VINDO DE VOLTA"}</p>
-              <CardTitle as="h1" id="library-title">{creatingAccount ? "Sua história começa aqui." : "Que bom ter você de volta."}</CardTitle>
+              <CardTitle as="h1" id="library-title" className={creatingAccount ? undefined : "login-title__single-line"}>
+                {creatingAccount ? "Abra sua primeira estante." : <>Seja <span className="login-title__greeting">bem-vindo(a)</span></>}
+              </CardTitle>
               <CardDescription className="login-card__description">
-                {creatingAccount ? "Crie sua conta e dê um lugar às histórias que você ama." : "Entre para continuar de onde sua última leitura levou você."}
+                {creatingAccount ? "Crie sua conta e dê um lugar às histórias que você ama." : "Entre para registrar leituras e encontrar seu próximo livro."}
               </CardDescription>
             </CardHeader>
 
@@ -1314,13 +1407,14 @@ function LibraryLanding({ onReturn }) {
                 </Field>
                 {error && <Alert id="login-error" variant="destructive" className="login-alert"><AlertDescription>{error}</AlertDescription></Alert>}
                 <Button className="login-submit-button" type="submit" size="lg" disabled={loading}>
-                  {loading ? "aguarde…" : creatingAccount ? "criar minha conta" : "entrar na minha biblioteca"}
+                  {loading ? "aguarde…" : creatingAccount ? "criar minha conta" : "abrir minha estante"}
+                  {!loading && <span aria-hidden="true">↗</span>}
                 </Button>
               </form>
             </CardContent>
 
             <CardFooter className="login-card__footer">
-              <span>{creatingAccount ? "Já tem uma conta?" : "Ainda não tem uma conta?"}</span>
+              <span>{creatingAccount ? "Já tem uma conta?" : "Primeira visita?"}</span>
               <Button variant="link" size="sm" type="button" onClick={() => { setCreatingAccount((value) => !value); setError(""); }}>
                 {creatingAccount ? "Entrar" : "Criar conta"}
               </Button>
@@ -1405,7 +1499,7 @@ function LibraryLanding({ onReturn }) {
             </div>
           ) : entries.length ? (
             <div className="bookshelf" aria-label="Estante da sua biblioteca">
-              {groupIntoShelves(entries).map((shelf, shelfIndex) => (
+              {groupIntoShelves(entries).map((shelf, shelfIndex, shelves) => (
                 <section className="bookshelf-row" key={`shelf-${shelfIndex}`} aria-label={`Prateleira ${shelfIndex + 1}`}>
                   <div className="bookshelf-books">
                     {shelf.map((entry, bookIndex) => {
@@ -1413,22 +1507,30 @@ function LibraryLanding({ onReturn }) {
                       const color = palette[(shelfIndex * 3 + bookIndex) % palette.length];
                       const height = 166 + ((shelfIndex * 7 + bookIndex * 13) % 5) * 9;
                       const isPulled = pulledBookId === entry.id;
+                      const canMoveDown = shelfIndex < shelves.length - 1 || shelf.length >= SHELF_CAPACITY;
+                      const isMoving = movingBookId === entry.id;
                       return (
-                        <button
-                          className={`shelf-volume${isPulled ? " is-pulled" : ""}${isPulled && !openedEntry ? " is-opening" : ""}`}
-                          key={entry.id}
-                          type="button"
-                          aria-haspopup="dialog"
-                          aria-label={`Abrir ${entry.book.title}, de ${entry.book.author}. ${statusLabel(entry.status)}.`}
-                          title={`${entry.book.title} — ${entry.book.author}`}
-                          style={{ "--spine-color": color, "--book-height": `${height}px`, "--book-index": bookIndex }}
-                          onClick={() => openBook(entry)}
-                        >
-                          <span className="shelf-volume__top" aria-hidden="true" />
-                          <span className="shelf-volume__title">{entry.book.title}</span>
-                          <span className="shelf-volume__author">{entry.book.author}</span>
-                          <span className="shelf-volume__bottom" aria-hidden="true">{entry.status === "READ" ? "✓" : entry.status === "READING" ? "◒" : "✦"}</span>
-                        </button>
+                        <div className={`shelf-book-slot${isMoving ? " is-moving" : ""}`} key={entry.id}>
+                          <button
+                            className={`shelf-volume${isPulled ? " is-pulled" : ""}${isPulled && !openedEntry ? " is-opening" : ""}`}
+                            type="button"
+                            disabled={isMoving}
+                            aria-haspopup="dialog"
+                            aria-label={`Abrir ${entry.book.title}, de ${entry.book.author}. ${statusLabel(entry.status)}.`}
+                            title={`${entry.book.title} — ${entry.book.author}`}
+                            style={{ "--spine-color": color, "--book-height": `${height}px`, "--book-index": bookIndex }}
+                            onClick={() => openBook(entry)}
+                          >
+                            <span className="shelf-volume__top" aria-hidden="true" />
+                            <span className="shelf-volume__title">{entry.book.title}</span>
+                            <span className="shelf-volume__author">{entry.book.author}</span>
+                            <span className="shelf-volume__bottom" aria-hidden="true">{entry.status === "READ" ? "✓" : entry.status === "READING" ? "◒" : "✦"}</span>
+                          </button>
+                          <div className="shelf-book-slot__controls" aria-label={`Mover ${entry.book.title}`}>
+                            {shelfIndex > 0 && <button className="shelf-move-button" type="button" disabled={isMoving} aria-label="Mover para a estante de cima" title="Mover para cima" onClick={() => moveBook(entry, shelfIndex - 1)}>↑</button>}
+                            {canMoveDown && <button className="shelf-move-button" type="button" disabled={isMoving} aria-label="Mover para a estante de baixo" title="Mover para baixo" onClick={() => moveBook(entry, shelfIndex + 1)}>↓</button>}
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
@@ -1436,7 +1538,7 @@ function LibraryLanding({ onReturn }) {
                 </section>
               ))}
               <p className="bookshelf-hint" aria-live="polite">
-                {pulledBookId ? openedEntry ? "Livro aberto para você consultar os detalhes." : "Retirando um livro da estante…" : "Passe o cursor sobre a lombada para incliná-la; clique para abrir e folhear."}
+                {pulledBookId ? openedEntry ? "Livro aberto para você consultar os detalhes." : "Retirando um livro da estante…" : "Passe o cursor sobre a lombada para incliná-la; clique para abrir. Use ↑ e ↓ para mover entre estantes."}
               </p>
             </div>
           ) : (

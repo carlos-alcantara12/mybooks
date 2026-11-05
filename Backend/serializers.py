@@ -21,6 +21,7 @@ from .models import (
 )
 
 User = get_user_model()
+SHELF_CAPACITY = 6
 
 
 def _raise_api_validation_error(error):
@@ -135,8 +136,29 @@ class LibraryEntrySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LibraryEntry
-        fields = ("id", "book", "book_id", "status", "pages_read", "added_at")
+        fields = ("id", "book", "book_id", "status", "pages_read", "shelf", "added_at")
         read_only_fields = ("id", "added_at")
+
+    def validate_shelf(self, value):
+        if self.instance is None:
+            if value != 0:
+                raise serializers.ValidationError("Novos livros começam na primeira estante.")
+            return value
+
+        current_shelf = self.instance.shelf
+        if abs(value - current_shelf) > 1:
+            raise serializers.ValidationError("Mova o livro apenas para a estante de cima ou de baixo.")
+        if value == current_shelf:
+            return value
+
+        entries = list(LibraryEntry.objects.filter(user=self.context["request"].user).values_list("shelf", flat=True))
+        shelf_counts = {shelf: entries.count(shelf) for shelf in set(entries)}
+        highest_shelf = max(shelf_counts, default=0)
+        if value > highest_shelf + 1:
+            raise serializers.ValidationError("Crie as estantes na sequência, sem deixar espaços vazios.")
+        if value == highest_shelf + 1 and shelf_counts.get(highest_shelf, 0) < SHELF_CAPACITY:
+            raise serializers.ValidationError("A estante atual precisa estar cheia antes de abrir outra.")
+        return value
 
     def validate(self, attrs):
         candidate = _candidate(self.instance, LibraryEntry, attrs)
@@ -148,7 +170,13 @@ class LibraryEntrySerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        entry = LibraryEntry(user=self.context["request"].user, **validated_data)
+        user = self.context["request"].user
+        shelf_values = list(LibraryEntry.objects.filter(user=user).values_list("shelf", flat=True))
+        highest_shelf = max(shelf_values, default=0)
+        if "shelf" not in validated_data:
+            current_count = shelf_values.count(highest_shelf)
+            validated_data["shelf"] = highest_shelf + 1 if current_count >= SHELF_CAPACITY else highest_shelf
+        entry = LibraryEntry(user=user, **validated_data)
         return _save_validated(entry)
 
     def update(self, instance, validated_data):
