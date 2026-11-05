@@ -31,6 +31,8 @@ from .external_books import ExternalBookCatalogError, get_google_volume, search_
 from .serializers import (
     BookSerializer,
     LibraryEntrySerializer,
+    LibraryEntryMoveSerializer,
+    LibraryEntrySwapSerializer,
     ReviewSerializer,
     SharedLibraryBookSerializer,
     SharedLibraryInvitationSerializer,
@@ -380,7 +382,9 @@ class LibraryEntryViewSet(viewsets.ModelViewSet):
     serializer_class = LibraryEntrySerializer
 
     def get_queryset(self):
-        queryset = LibraryEntry.objects.filter(user=self.request.user).select_related("book")
+        queryset = LibraryEntry.objects.filter(user=self.request.user).select_related("book").order_by(
+            "shelf", "position", "-added_at", "pk"
+        )
         search = self.request.query_params.get("search", "").strip()
         genre = self.request.query_params.get("genre", "").strip()
         reading_status = self.request.query_params.get("status", "").strip()
@@ -394,6 +398,95 @@ class LibraryEntryViewSet(viewsets.ModelViewSet):
                 raise ValidationError({"status": "Use WANT_TO_READ, READING ou READ."})
             queryset = queryset.filter(status=reading_status)
         return queryset
+
+    @action(detail=True, methods=["patch"], url_path="move")
+    def move(self, request, *args, **kwargs):
+        serializer = LibraryEntryMoveSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        target_shelf = serializer.validated_data["shelf"]
+        target_position = serializer.validated_data["position"]
+        entry = self.get_object()
+
+        with transaction.atomic():
+            entries = list(
+                LibraryEntry.objects.select_for_update()
+                .filter(user=request.user)
+                .select_related("book")
+                .order_by("shelf", "position", "-added_at", "pk")
+            )
+            moving = next((item for item in entries if item.pk == entry.pk), None)
+            if moving is None:
+                raise ValidationError("Este livro não está na sua biblioteca.")
+
+            highest_shelf = max((item.shelf for item in entries), default=0)
+            shelves = {index: [] for index in range(highest_shelf + 1)}
+            for item in entries:
+                if item.pk != moving.pk:
+                    shelves.setdefault(item.shelf, []).append(item)
+
+            if target_shelf > highest_shelf + 1:
+                raise ValidationError({"shelf": "Escolha uma prateleira existente ou a próxima prateleira disponível."})
+            if target_shelf == highest_shelf + 1:
+                last_shelf_count = sum(item.shelf == highest_shelf for item in entries)
+                if last_shelf_count < 6:
+                    raise ValidationError({"shelf": "A última prateleira precisa estar cheia antes de abrir outra."})
+                shelves[target_shelf] = []
+
+            destination = shelves[target_shelf]
+            if target_shelf != moving.shelf and len(destination) >= 6:
+                raise ValidationError({"shelf": "Essa prateleira já está cheia."})
+            if target_position > len(destination):
+                raise ValidationError({"position": "A posição escolhida não existe nessa prateleira."})
+
+            destination.insert(target_position, moving)
+            nonempty_shelves = [shelf_entries for _, shelf_entries in sorted(shelves.items()) if shelf_entries]
+            updated_entries = []
+            for shelf_index, shelf_entries in enumerate(nonempty_shelves):
+                for position, item in enumerate(shelf_entries):
+                    item.shelf = shelf_index
+                    item.position = position
+                    updated_entries.append(item)
+            LibraryEntry.objects.bulk_update(updated_entries, ["shelf", "position"])
+
+        return Response(self.get_serializer(moving).data)
+
+    @action(detail=True, methods=["patch"], url_path="swap")
+    def swap(self, request, *args, **kwargs):
+        serializer = LibraryEntrySwapSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        target_entry_id = serializer.validated_data["target_entry_id"]
+        entry = self.get_object()
+        if target_entry_id == entry.pk:
+            raise ValidationError({"target_entry_id": "Escolha outro livro para trocar de lugar."})
+
+        with transaction.atomic():
+            entries = list(
+                LibraryEntry.objects.select_for_update()
+                .filter(user=request.user)
+                .select_related("book")
+                .order_by("shelf", "position", "-added_at", "pk")
+            )
+            moving = next((item for item in entries if item.pk == entry.pk), None)
+            target = next((item for item in entries if item.pk == target_entry_id), None)
+            if moving is None or target is None:
+                raise ValidationError({"target_entry_id": "O outro livro não está na sua biblioteca."})
+
+            moving.shelf, target.shelf = target.shelf, moving.shelf
+            moving.position, target.position = target.position, moving.position
+            shelves = {}
+            for item in entries:
+                shelves.setdefault(item.shelf, []).append(item)
+
+            updated_entries = []
+            for shelf_index, shelf_entries in enumerate(shelves[index] for index in sorted(shelves)):
+                for position, item in enumerate(shelf_entries):
+                    item.shelf = shelf_index
+                    item.position = position
+                    updated_entries.append(item)
+            LibraryEntry.objects.bulk_update(updated_entries, ["shelf", "position"])
+
+        return Response(self.get_serializer(moving).data)
+
     def perform_create(self, serializer):
         with transaction.atomic():
             entry = serializer.save()

@@ -136,29 +136,8 @@ class LibraryEntrySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LibraryEntry
-        fields = ("id", "book", "book_id", "status", "pages_read", "shelf", "added_at")
-        read_only_fields = ("id", "added_at")
-
-    def validate_shelf(self, value):
-        if self.instance is None:
-            if value != 0:
-                raise serializers.ValidationError("Novos livros começam na primeira estante.")
-            return value
-
-        current_shelf = self.instance.shelf
-        if abs(value - current_shelf) > 1:
-            raise serializers.ValidationError("Mova o livro apenas para a estante de cima ou de baixo.")
-        if value == current_shelf:
-            return value
-
-        entries = list(LibraryEntry.objects.filter(user=self.context["request"].user).values_list("shelf", flat=True))
-        shelf_counts = {shelf: entries.count(shelf) for shelf in set(entries)}
-        highest_shelf = max(shelf_counts, default=0)
-        if value > highest_shelf + 1:
-            raise serializers.ValidationError("Crie as estantes na sequência, sem deixar espaços vazios.")
-        if value == highest_shelf + 1 and shelf_counts.get(highest_shelf, 0) < SHELF_CAPACITY:
-            raise serializers.ValidationError("A estante atual precisa estar cheia antes de abrir outra.")
-        return value
+        fields = ("id", "book", "book_id", "status", "pages_read", "shelf", "position", "added_at")
+        read_only_fields = ("id", "shelf", "position", "added_at")
 
     def validate(self, attrs):
         candidate = _candidate(self.instance, LibraryEntry, attrs)
@@ -176,6 +155,11 @@ class LibraryEntrySerializer(serializers.ModelSerializer):
         if "shelf" not in validated_data:
             current_count = shelf_values.count(highest_shelf)
             validated_data["shelf"] = highest_shelf + 1 if current_count >= SHELF_CAPACITY else highest_shelf
+        shelf_positions = LibraryEntry.objects.filter(
+            user=user,
+            shelf=validated_data["shelf"],
+        ).values_list("position", flat=True)
+        validated_data["position"] = max(shelf_positions, default=-1) + 1
         entry = LibraryEntry(user=user, **validated_data)
         return _save_validated(entry)
 
@@ -183,6 +167,15 @@ class LibraryEntrySerializer(serializers.ModelSerializer):
         candidate = _candidate(instance, LibraryEntry, validated_data)
         candidate.user = self.context["request"].user
         return _save_validated(candidate)
+
+
+class LibraryEntryMoveSerializer(serializers.Serializer):
+    shelf = serializers.IntegerField(min_value=0)
+    position = serializers.IntegerField(min_value=0)
+
+
+class LibraryEntrySwapSerializer(serializers.Serializer):
+    target_entry_id = serializers.IntegerField(min_value=1)
 
 
 class ReviewSerializer(serializers.ModelSerializer):

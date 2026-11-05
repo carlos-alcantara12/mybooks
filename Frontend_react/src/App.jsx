@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Alert, AlertDescription } from "./components/ui/alert";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
@@ -192,6 +193,7 @@ function groupIntoShelves(items, shelfSize = SHELF_CAPACITY) {
   const highestShelf = Math.max(0, ...items.map((item) => Math.max(0, Number(item.shelf) || 0)));
   const shelves = Array.from({ length: highestShelf + 1 }, () => []);
   items.forEach((item) => shelves[Math.max(0, Number(item.shelf) || 0)]?.push(item));
+  shelves.forEach((shelf) => shelf.sort((left, right) => (Number(left.position) || 0) - (Number(right.position) || 0)));
   if (shelves[shelves.length - 1]?.length >= shelfSize) shelves.push([]);
   return shelves;
 }
@@ -1082,13 +1084,17 @@ function LibraryLanding({ onReturn }) {
   const [submittedGenre, setSubmittedGenre] = useState("");
   const [submittedStatus, setSubmittedStatus] = useState("");
   const [page, setPage] = useState(1);
+  const [libraryRevision, setLibraryRevision] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
   const [totalEntries, setTotalEntries] = useState(0);
   const [loading, setLoading] = useState(false);
   const [movingBookId, setMovingBookId] = useState(null);
   const [draggedBookId, setDraggedBookId] = useState(null);
+  const [dragPosition, setDragPosition] = useState(null);
   const [dragOverShelf, setDragOverShelf] = useState(null);
+  const [dragOverPosition, setDragOverPosition] = useState(null);
+  const [dragSwapTargetId, setDragSwapTargetId] = useState(null);
   const bookDragRef = useRef(null);
   const suppressBookClickRef = useRef(false);
   const suppressBookClickTimerRef = useRef(null);
@@ -1174,7 +1180,7 @@ function LibraryLanding({ onReturn }) {
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [accessToken, page, submittedSearch, submittedGenre, submittedStatus]);
+  }, [accessToken, page, submittedSearch, submittedGenre, submittedStatus, libraryRevision]);
 
   async function submitAccess(event) {
     event.preventDefault();
@@ -1240,21 +1246,15 @@ function LibraryLanding({ onReturn }) {
     setSubmittedStatus(category);
   }
 
-  async function moveBook(entry, targetShelf) {
-    const currentShelf = Math.max(0, Number(entry.shelf) || 0);
-    const shelves = groupIntoShelves(entries);
-    const targetExists = targetShelf >= 0 && targetShelf < shelves.length;
-    const targetHasSpace = targetExists && shelves[targetShelf].length < SHELF_CAPACITY;
-    if (!targetHasSpace || targetShelf === currentShelf) return;
-
+  async function moveBook(entry, targetShelf, targetPosition) {
     setMovingBookId(entry.id);
     setError("");
     try {
-      const updated = await catalogRequest(`/library/${entry.id}/`, accessToken, setAccessToken, {
+      await catalogRequest(`/library/${entry.id}/move/`, accessToken, setAccessToken, {
         method: "PATCH",
-        body: JSON.stringify({ shelf: targetShelf }),
+        body: JSON.stringify({ shelf: targetShelf, position: targetPosition }),
       });
-      setEntries((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setLibraryRevision((revision) => revision + 1);
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -1262,29 +1262,63 @@ function LibraryLanding({ onReturn }) {
     }
   }
 
-  function shelfAtPoint(x, y) {
+  async function swapBooks(entry, targetEntryId) {
+    setMovingBookId(entry.id);
+    setError("");
+    try {
+      await catalogRequest(`/library/${entry.id}/swap/`, accessToken, setAccessToken, {
+        method: "PATCH",
+        body: JSON.stringify({ target_entry_id: targetEntryId }),
+      });
+      setLibraryRevision((revision) => revision + 1);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setMovingBookId(null);
+    }
+  }
+
+  function bookAtPoint(x, y, entry) {
+    const slot = document.elementFromPoint(x, y)?.closest(".shelf-book-slot[data-entry-id]");
+    if (!slot || slot.dataset.entryId === String(entry.id)) return null;
+    const bounds = slot.getBoundingClientRect();
+    const horizontalPosition = (x - bounds.left) / bounds.width;
+    if (horizontalPosition < 0.25 || horizontalPosition > 0.75) return null;
+    const targetEntryId = Number(slot.dataset.entryId);
+    const targetEntry = entries.find((item) => item.id === targetEntryId);
+    return targetEntry ? { id: targetEntryId, shelf: Number(slot.closest("[data-shelf-index]")?.dataset.shelfIndex) } : null;
+  }
+
+  function shelfLocationAtPoint(x, y, entry) {
     const row = document.elementFromPoint(x, y)?.closest("[data-shelf-index]");
     if (!row) return null;
-    const index = Number(row.dataset.shelfIndex);
-    return Number.isInteger(index) ? index : null;
+    const shelf = Number(row.dataset.shelfIndex);
+    if (!Number.isInteger(shelf)) return null;
+    const slots = [...row.querySelectorAll(".shelf-book-slot")]
+      .filter((slot) => slot.dataset.entryId !== String(entry.id));
+    const position = slots.findIndex((slot) => x < slot.getBoundingClientRect().left + slot.getBoundingClientRect().width / 2);
+    return { shelf, position: position < 0 ? slots.length : position };
   }
 
-  function canDropBookOnShelf(entry, targetShelf) {
-    if (targetShelf === null || targetShelf < 0) return false;
+  function canDropBookAt(entry, targetShelf, targetPosition) {
+    if (targetShelf === null || targetShelf < 0 || targetPosition === null) return false;
     const currentShelf = Math.max(0, Number(entry.shelf) || 0);
     const shelves = groupIntoShelves(entries);
-    return targetShelf !== currentShelf
-      && targetShelf < shelves.length
-      && shelves[targetShelf].length < SHELF_CAPACITY;
+    if (targetShelf >= shelves.length) return false;
+    const targetEntries = shelves[targetShelf].filter((item) => item.id !== entry.id);
+    if (targetEntries.length >= SHELF_CAPACITY || targetPosition > targetEntries.length) return false;
+    return targetShelf !== currentShelf || targetPosition !== Number(entry.position || 0);
   }
 
-  function beginBookDrag(event, entry) {
+  function beginBookDrag(event, entry, color, height) {
     if (event.button !== 0 || movingBookId) return;
     bookDragRef.current = {
       entry,
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
+      color,
+      height,
       started: false,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -1299,30 +1333,54 @@ function LibraryLanding({ onReturn }) {
       suppressBookClickRef.current = true;
       setDraggedBookId(drag.entry.id);
     }
-    const targetShelf = shelfAtPoint(event.clientX, event.clientY);
-    setDragOverShelf(canDropBookOnShelf(drag.entry, targetShelf) ? targetShelf : null);
+    setDragPosition({ x: event.clientX, y: event.clientY });
+    const swapTarget = bookAtPoint(event.clientX, event.clientY, drag.entry);
+    if (swapTarget) {
+      setDragSwapTargetId(swapTarget.id);
+      setDragOverShelf(swapTarget.shelf);
+      setDragOverPosition(null);
+    } else {
+      const location = shelfLocationAtPoint(event.clientX, event.clientY, drag.entry);
+      const canDrop = location && canDropBookAt(drag.entry, location.shelf, location.position);
+      setDragSwapTargetId(null);
+      setDragOverShelf(canDrop ? location.shelf : null);
+      setDragOverPosition(canDrop ? location.position : null);
+    }
   }
 
   function finishBookDrag(event) {
     const drag = bookDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (drag.started) {
-      const targetShelf = shelfAtPoint(event.clientX, event.clientY);
-      if (canDropBookOnShelf(drag.entry, targetShelf)) void moveBook(drag.entry, targetShelf);
+      const swapTarget = bookAtPoint(event.clientX, event.clientY, drag.entry);
+      const location = swapTarget ? null : shelfLocationAtPoint(event.clientX, event.clientY, drag.entry);
+      if (swapTarget) {
+        void swapBooks(drag.entry, swapTarget.id);
+      } else if (location && canDropBookAt(drag.entry, location.shelf, location.position)) {
+        void moveBook(drag.entry, location.shelf, location.position);
+      }
       suppressBookClickTimerRef.current = window.setTimeout(() => {
         suppressBookClickRef.current = false;
       }, 450);
     }
     bookDragRef.current = null;
     setDraggedBookId(null);
+    setDragPosition(null);
     setDragOverShelf(null);
+    setDragOverPosition(null);
+    setDragSwapTargetId(null);
   }
 
   function cancelBookDrag(event) {
     if (bookDragRef.current?.pointerId !== event.pointerId) return;
     bookDragRef.current = null;
+    suppressBookClickRef.current = false;
+    window.clearTimeout(suppressBookClickTimerRef.current);
     setDraggedBookId(null);
+    setDragPosition(null);
     setDragOverShelf(null);
+    setDragOverPosition(null);
+    setDragSwapTargetId(null);
   }
 
   function openBookUnlessDragged(event, entry) {
@@ -1499,46 +1557,84 @@ function LibraryLanding({ onReturn }) {
             </div>
           ) : entries.length ? (
             <div className="bookshelf" aria-label="Estante da sua biblioteca">
-              {groupIntoShelves(entries).map((shelf, shelfIndex, shelves) => (
-                <section className="bookshelf-row" key={`shelf-${shelfIndex}`} aria-label={`Prateleira ${shelfIndex + 1}`}>
-                  <div className="bookshelf-books">
+              {groupIntoShelves(entries).map((shelf, shelfIndex) => {
+                const displayCount = shelf.filter((entry) => entry.id !== draggedBookId).length;
+                let displayIndex = 0;
+                return (
+                <section
+                  className={`bookshelf-row${dragOverShelf === shelfIndex ? " is-drop-target" : ""}${displayCount === 0 ? " is-empty-destination" : ""}`}
+                  key={`shelf-${shelfIndex}`}
+                  aria-label={`Prateleira ${shelfIndex + 1}`}
+                  data-shelf-index={shelfIndex}
+                >
+                  <div className={`bookshelf-books${displayCount === 0 ? " bookshelf-books--empty" : ""}`}>
+                    {displayCount === 0 && <span className="bookshelf-drop-label">Arraste um livro para esta prateleira</span>}
+                    {dragOverShelf === shelfIndex && dragOverPosition === 0 && displayCount === 0 && <span className="bookshelf-insertion-marker" aria-hidden="true" />}
                     {shelf.map((entry, bookIndex) => {
+                      const isDraggedSource = entry.id === draggedBookId;
+                      const logicalIndex = isDraggedSource ? -1 : displayIndex++;
                       const palette = ["#784638", "#455c4c", "#a07645", "#584653", "#384e63", "#8a654b"];
                       const color = palette[(shelfIndex * 3 + bookIndex) % palette.length];
                       const height = 166 + ((shelfIndex * 7 + bookIndex * 13) % 5) * 9;
                       const isPulled = pulledBookId === entry.id;
-                      const canMoveDown = shelfIndex < shelves.length - 1 || shelf.length >= SHELF_CAPACITY;
                       const isMoving = movingBookId === entry.id;
+                      const isDragging = draggedBookId === entry.id;
                       return (
-                        <div className={`shelf-book-slot${isMoving ? " is-moving" : ""}`} key={entry.id}>
+                        <div
+                          className={`shelf-book-slot${isMoving ? " is-moving" : ""}${isDraggedSource ? " is-drag-source" : ""}${dragOverShelf === shelfIndex && dragOverPosition === logicalIndex ? " is-insertion-target" : ""}${dragSwapTargetId === entry.id ? " is-swap-target" : ""}`}
+                          key={entry.id}
+                          data-entry-id={entry.id}
+                        >
                           <button
-                            className={`shelf-volume${isPulled ? " is-pulled" : ""}${isPulled && !openedEntry ? " is-opening" : ""}`}
+                            className={`shelf-volume${isPulled ? " is-pulled" : ""}${isPulled && !openedEntry ? " is-opening" : ""}${isDragging ? " is-dragging" : ""}`}
                             type="button"
                             disabled={isMoving}
                             aria-haspopup="dialog"
-                            aria-label={`Abrir ${entry.book.title}, de ${entry.book.author}. ${statusLabel(entry.status)}.`}
-                            title={`${entry.book.title} — ${entry.book.author}`}
+                            aria-label={`Abrir ${entry.book.title}, de ${entry.book.author}. Arraste sobre o centro de outro livro para trocar de lugar, ou pela lateral para inserir ao lado. ${statusLabel(entry.status)}.`}
+                            title={`${entry.book.title} — ${entry.book.author}. Centro: trocar de lugar; lateral: inserir ao lado.`}
                             style={{ "--spine-color": color, "--book-height": `${height}px`, "--book-index": bookIndex }}
-                            onClick={() => openBook(entry)}
+                            onPointerDown={(event) => beginBookDrag(event, entry, color, height)}
+                            onPointerMove={updateBookDrag}
+                            onPointerUp={finishBookDrag}
+                            onPointerCancel={cancelBookDrag}
+                            onClick={(event) => openBookUnlessDragged(event, entry)}
                           >
                             <span className="shelf-volume__top" aria-hidden="true" />
                             <span className="shelf-volume__title">{entry.book.title}</span>
                             <span className="shelf-volume__author">{entry.book.author}</span>
                             <span className="shelf-volume__bottom" aria-hidden="true">{entry.status === "READ" ? "✓" : entry.status === "READING" ? "◒" : "✦"}</span>
                           </button>
-                          <div className="shelf-book-slot__controls" aria-label={`Mover ${entry.book.title}`}>
-                            {shelfIndex > 0 && <button className="shelf-move-button" type="button" disabled={isMoving} aria-label="Mover para a estante de cima" title="Mover para cima" onClick={() => moveBook(entry, shelfIndex - 1)}>↑</button>}
-                            {canMoveDown && <button className="shelf-move-button" type="button" disabled={isMoving} aria-label="Mover para a estante de baixo" title="Mover para baixo" onClick={() => moveBook(entry, shelfIndex + 1)}>↓</button>}
-                          </div>
                         </div>
                       );
                     })}
+                    {dragOverShelf === shelfIndex && dragOverPosition === displayCount && displayCount > 0 && <span className="bookshelf-insertion-marker" aria-hidden="true" />}
                   </div>
                   <div className="bookshelf-plank" aria-hidden="true"><span /></div>
                 </section>
-              ))}
+              ); })}
+              {draggedBookId !== null && dragPosition && bookDragRef.current && (
+                createPortal(
+                  <div
+                    className="shelf-volume shelf-drag-preview"
+                    aria-hidden="true"
+                    style={{
+                      left: dragPosition.x,
+                      top: dragPosition.y,
+                      "--spine-color": bookDragRef.current.color,
+                      "--book-height": `${bookDragRef.current.height}px`,
+                      "--book-index": 0,
+                    }}
+                  >
+                    <span className="shelf-volume__top" />
+                    <span className="shelf-volume__title">{bookDragRef.current.entry.book.title}</span>
+                    <span className="shelf-volume__author">{bookDragRef.current.entry.book.author}</span>
+                    <span className="shelf-volume__bottom">{bookDragRef.current.entry.status === "READ" ? "✓" : bookDragRef.current.entry.status === "READING" ? "◒" : "✦"}</span>
+                  </div>,
+                  document.body,
+                )
+              )}
               <p className="bookshelf-hint" aria-live="polite">
-                {pulledBookId ? openedEntry ? "Livro aberto para você consultar os detalhes." : "Retirando um livro da estante…" : "Passe o cursor sobre a lombada para incliná-la; clique para abrir. Use ↑ e ↓ para mover entre estantes."}
+                {draggedBookId ? dragSwapTargetId ? "Solte sobre o livro destacado para trocar os dois de lugar." : "Solte entre dois livros, pela lateral de uma lombada ou no fim da prateleira para inserir." : pulledBookId ? openedEntry ? "Livro aberto para você consultar os detalhes." : "Retirando um livro da estante…" : "Arraste sobre o centro de outro livro para trocar de lugar; use as laterais ou os espaços para inserir."}
               </p>
             </div>
           ) : (
