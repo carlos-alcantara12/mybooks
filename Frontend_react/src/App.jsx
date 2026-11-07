@@ -953,39 +953,40 @@ function CatalogExplorer({ accessToken, onToken }) {
   const [addingBook, setAddingBook] = useState(null);
   const [addedBooks, setAddedBooks] = useState({});
   const [feedback, setFeedback] = useState({});
-  const [suggestedBooks, setSuggestedBooks] = useState([
-    { id: "suggestion-prince", title: "O Pequeno Príncipe", author: "Antoine de Saint-Exupéry", search: "O Pequeno Príncipe" },
-    { id: "suggestion-hobbit", title: "O Hobbit", author: "J. R. R. Tolkien", search: "O Hobbit" },
-    { id: "suggestion-1984", title: "1984", author: "George Orwell", search: "1984" },
-  ]);
+  const [similarBooks, setSimilarBooks] = useState([]);
+  const [recommendationGenre, setRecommendationGenre] = useState("");
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
 
   useEffect(() => {
-    let active = true;
+    const genreQuery = submittedGenre || results.find((book) => book.genre?.trim())?.genre?.trim() || "";
+    setRecommendationGenre(genreQuery);
+    if (!genreQuery || !results.length) {
+      setSimilarBooks([]);
+      setLoadingRecommendations(false);
+      return undefined;
+    }
+
     const controller = new AbortController();
-    const suggestions = [
-      { id: "suggestion-prince", search: "O Pequeno Príncipe" },
-      { id: "suggestion-hobbit", search: "O Hobbit" },
-      { id: "suggestion-1984", search: "1984" },
-    ];
-    Promise.all(suggestions.map(async (suggestion) => {
-      try {
-        const data = await getLibraryPage(`/books/discover/?search=${encodeURIComponent(suggestion.search)}`, accessToken, onToken, controller.signal);
-        const normalizedQuery = suggestion.search.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
-        const match = (data.results || []).find((book) => book.title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").includes(normalizedQuery));
-        return { id: suggestion.id, cover_url: match?.cover_url || "", catalogBook: match || null };
-      } catch (requestError) {
-        if (requestError.name !== "AbortError") return { id: suggestion.id, cover_url: "", catalogBook: null };
-        return null;
-      }
-    })).then((discoveredBooks) => {
-      if (!active) return;
-      setSuggestedBooks((current) => current.map((book) => {
-        const discovered = discoveredBooks.find((item) => item?.id === book.id);
-        return { ...book, cover_url: discovered?.cover_url || "", average_rating: discovered?.catalogBook?.average_rating ?? null, catalogBook: discovered?.catalogBook || null };
-      }));
-    });
-    return () => { active = false; controller.abort(); };
-  }, [accessToken, onToken]);
+    setLoadingRecommendations(true);
+    const delay = window.setTimeout(() => {
+      const pageToRecommend = submittedGenre ? 2 : 1;
+      getLibraryPage(`/books/discover/?genre=${encodeURIComponent(genreQuery)}&page=${pageToRecommend}`, accessToken, onToken, controller.signal)
+        .then((data) => {
+          const normalize = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("pt-BR");
+          const currentBooks = new Set(results.map((book) => `${normalize(book.title)}|${normalize(book.author)}`));
+          setSimilarBooks((data.results || []).filter((book) => !currentBooks.has(`${normalize(book.title)}|${normalize(book.author)}`)).slice(0, 3));
+        })
+        .catch((requestError) => {
+          if (requestError.name !== "AbortError") setSimilarBooks([]);
+        })
+        .finally(() => setLoadingRecommendations(false));
+    }, 1100);
+
+    return () => {
+      window.clearTimeout(delay);
+      controller.abort();
+    };
+  }, [accessToken, onToken, results, submittedGenre]);
   useEffect(() => {
     if (!submittedSearch && !submittedGenre) return undefined;
     const controller = new AbortController();
@@ -1092,9 +1093,7 @@ function CatalogExplorer({ accessToken, onToken }) {
         <div className="explore-dashboard__main">
       <div className="explore-heading explore-heading--primary">
         <div>
-          <p className="library-kicker">descubra novas histórias</p>
           <h1 id="explore-title">Encontre sua próxima leitura.</h1>
-          <p className="explore-intro">Pesquise no catálogo, aplique filtros e descubra obras que combinam com o seu momento.</p>
         </div>
       </div>
       <form className="explore-search" onSubmit={submitSearch} aria-label="Buscar livros no catálogo">
@@ -1193,22 +1192,23 @@ function CatalogExplorer({ accessToken, onToken }) {
         </div>
 
         <aside className="explore-sidebar" aria-label="Sugestões de livros">
-          <section className="explore-suggestions" aria-labelledby="explore-suggestions-title">
+          {results.length > 0 && recommendationGenre && <section className="explore-suggestions" aria-labelledby="explore-suggestions-title">
             <div className="explore-suggestions__heading">
-              <h2 id="explore-suggestions-title"><span aria-hidden="true">✧</span>Sugestões para sua estante</h2>
-              <p>Obras que costumam encantar leitores de fantasia e clássicos.</p>
+              <h2 id="explore-suggestions-title"><span aria-hidden="true">✧</span>Você também pode se interessar</h2>
+              <p>Outras obras do mesmo gênero da sua busca.</p>
             </div>
-            {(results.length ? results.slice(0, 3).map((book) => ({ ...book, catalogBook: book })) : suggestedBooks).map((book) => (
+            {similarBooks.map((book) => (
               <article className="explore-suggestion" key={book.id}>
                 {book.cover_url ? <img src={book.cover_url} alt={`Capa de ${book.title}`} loading="lazy" onError={(event) => { event.currentTarget.hidden = true; event.currentTarget.nextElementSibling.hidden = false; }} /> : null}
                 <span className="explore-suggestion__placeholder" aria-hidden="true" hidden={Boolean(book.cover_url)} />
                 <div><h3>{book.title}</h3><p>{book.author}</p></div>
                 {book.average_rating != null && <p className="explore-suggestion__rating" aria-label={`Avaliação ${Number(book.average_rating).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} de 5`}><span aria-hidden="true">★</span>{Number(book.average_rating).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</p>}
-                <button type="button" onClick={() => book.catalogBook ? addBook(book.catalogBook, "WANT_TO_READ") : searchForSuggestion(book.title)} aria-label={book.catalogBook ? `Adicionar ${book.title} à lista de desejos` : `Buscar ${book.title}`}>＋</button>
+                <button type="button" disabled={Boolean(addingBook) || Boolean(addedBooks[book.id])} onClick={() => addBook(book, "WANT_TO_READ")} aria-label={addedBooks[book.id] ? `${book.title} já está na sua biblioteca` : `Adicionar ${book.title} à lista de desejos`}>{addedBooks[book.id] ? "✓" : "＋"}</button>
               </article>
             ))}
-            <button className="explore-suggestions__more" type="button" onClick={() => searchForSuggestion("fantasia", "genre")}>Ver mais sugestões</button>
-          </section>
+            {loadingRecommendations && <p className="explore-recommendations-loading" role="status">Buscando obras semelhantes…</p>}
+            {!loadingRecommendations && !similarBooks.length && <p className="explore-recommendations-empty">Não encontrei outras obras desse gênero no catálogo agora.</p>}
+          </section>}
         </aside>
       </div>
     </section>
