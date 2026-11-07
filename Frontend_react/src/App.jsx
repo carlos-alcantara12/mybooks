@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Alert, AlertDescription } from "./components/ui/alert";
+import { Avatar, AvatarFallback } from "./components/ui/avatar";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./components/ui/card";
@@ -42,7 +43,6 @@ function chooseWelcomeQuote() {
   }
   return selected;
 }
-
 function WelcomeScreen({ onContinue }) {
   const [isLeaving, setIsLeaving] = useState(false);
   const screenRef = useRef(null);
@@ -322,7 +322,9 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
         <DialogClose as={Button} ref={closeButtonRef} variant="ghost" size="sm" className="book-dialog__close" type="button" onClick={onClose} aria-label="Fechar livro e voltar à estante">×</DialogClose>
         <div className="book-dialog__book-open">
           <div className="book-dialog__cover-page">
+            <span className="book-dialog__cover-ornament book-dialog__cover-ornament--top" aria-hidden="true">✧</span>
             {book.cover_url && !coverFailed ? <img src={book.cover_url} alt={`Capa de ${book.title}`} onError={() => setCoverFailed(true)} /> : <div className="book-dialog__cover-fallback">{book.title}</div>}
+            <span className="book-dialog__cover-ornament book-dialog__cover-ornament--bottom" aria-hidden="true">✧</span>
           </div>
           <div className="book-dialog__page-flips" aria-hidden="true">
             {[0, 1, 2].map((page) => <span key={page} style={{ "--page-index": page }} />)}
@@ -502,10 +504,21 @@ function formatDuration(seconds) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
 }
 
+function spineEmblem(title = "") {
+  const name = title.toLocaleLowerCase();
+  if (name.includes("1984")) return "◉";
+  if (name.includes("assassin")) return "◆";
+  if (name.includes("prince") || name.includes("caspian")) return "♜";
+  if (name.includes("chair")) return "♧";
+  if (name.includes("mundo") || name.includes("narnia")) return "✥";
+  return "✦";
+}
+
 function ReadingTimer({ accessToken, onToken, todayMinutes, onSessionStopped }) {
   const [activeSession, setActiveSession] = useState(null);
   const [goal, setGoal] = useState(30);
   const [goalInput, setGoalInput] = useState("30");
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -572,6 +585,7 @@ function ReadingTimer({ accessToken, onToken, todayMinutes, onSessionStopped }) 
         body: JSON.stringify({ target_minutes: value }),
       });
       setGoal(data.target_minutes);
+      setIsEditingGoal(false);
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -581,34 +595,36 @@ function ReadingTimer({ accessToken, onToken, todayMinutes, onSessionStopped }) 
 
   return (
     <section className="reading-timer" aria-labelledby="reading-timer-title">
-      <div className="reading-timer__main">
-        <div>
-          <p className="library-kicker">um momento para sua leitura</p>
-          <h2 id="reading-timer-title">Timer de leitura</h2>
-          <p className="reading-timer__today">Hoje: {Math.floor(todaySeconds / 60)} de {goal} minutos</p>
+      <div className="reading-timer__workspace">
+        <div className="reading-timer__identity">
+          <svg className="reading-timer__book-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3.5 5.5c3.2-.8 6.1-.2 8.5 1.7v12c-2.4-1.9-5.3-2.5-8.5-1.7v-12Z" /><path d="M20.5 5.5c-3.2-.8-6.1-.2-8.5 1.7v12c2.4-1.9 5.3-2.5 8.5-1.7v-12Z" /></svg>
+          <div><h2 id="reading-timer-title">Sess&#227;o de leitura</h2><p>Meta di&#225;ria: {goal} minutos</p></div>
         </div>
         <div className={`reading-timer__clock${activeSession ? " is-running" : ""}`} aria-live="off">{formatDuration(elapsedSeconds)}</div>
-        <button className="library-primary-button" type="button" disabled={loading || saving} onClick={toggleSession}>
-          {saving ? "aguarde…" : activeSession ? "encerrar sessão" : "iniciar leitura"}
+        <button className={`reading-timer__control${activeSession ? " is-stop" : ""}`} type="button" aria-label={activeSession ? "Encerrar sess\u00e3o de leitura" : "Iniciar sess\u00e3o de leitura"} title={activeSession ? "Encerrar sess\u00e3o" : "Iniciar leitura"} disabled={loading || saving} onClick={toggleSession}>
+          <span aria-hidden="true">{saving ? "…" : activeSession ? "■" : "▶"}</span>
         </button>
+        <div className="reading-timer__goal-panel">
+          <h3>Meta do dia</h3>
+          <div className="reading-timer__goal-ring" role="img" aria-label={`Meta di\u00e1ria: ${goalProgress}% conclu\u00edda`} style={{ "--goal-progress": `${goalProgress}%` }}><span>{goalProgress}%</span></div>
+          <p>{Math.floor(todaySeconds / 60)} de {goal} min</p>
+          <button className="reading-timer__edit-goal" type="button" aria-label={"Editar meta di\u00e1ria"} aria-expanded={isEditingGoal} onClick={() => setIsEditingGoal((value) => !value)}>&#9998;</button>
+        </div>
       </div>
-      <div className="reading-timer__goal" aria-label={`Meta diária: ${goalProgress}% concluída`}>
-        <div className="reading-timer__goal-track"><span style={{ width: `${goalProgress}%` }} /></div>
-        <span>{goalProgress}% da meta diária</span>
-      </div>
-      <form className="reading-timer__goal-form" onSubmit={saveGoal}>
-        <label htmlFor="daily-reading-goal">Minha meta diária</label>
+      {isEditingGoal && <form className="reading-timer__goal-form" onSubmit={saveGoal}>
+        <label htmlFor="daily-reading-goal">Minha meta di&#225;ria</label>
         <input id="daily-reading-goal" type="number" min="1" max="1440" value={goalInput} onChange={(event) => setGoalInput(event.target.value)} />
         <span>minutos</span>
-        <button type="submit" disabled={saving || loading}>salvar meta</button>
-      </form>
+        <button type="submit" disabled={saving || loading}>{saving ? "salvando..." : "salvar meta"}</button>
+      </form>}
       {error && <p className="book-dialog__error" role="alert">{error}</p>}
     </section>
   );
 }
-
-function ReadingProgressView({ accessToken, onToken }) {
+function ReadingProgressView({ accessToken, onToken, onGoToLibrary }) {
   const [stats, setStats] = useState(null);
+  const [currentEntry, setCurrentEntry] = useState(null);
+  const [chartPeriod, setChartPeriod] = useState("daily");
   const [refreshCount, setRefreshCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -616,41 +632,80 @@ function ReadingProgressView({ accessToken, onToken }) {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    catalogRequest("/reading-stats/", accessToken, onToken)
-      .then((data) => { if (active) setStats(data); })
+    Promise.all([
+      catalogRequest("/reading-stats/", accessToken, onToken),
+      catalogRequest("/library/?status=READING&page=1", accessToken, onToken),
+    ])
+      .then(([data, libraryData]) => { if (active) { setStats(data); setCurrentEntry(libraryData.results?.[0] || null); } })
       .catch((requestError) => { if (active) setError(requestError.message); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [accessToken, onToken, refreshCount]);
 
+  const today = stats?.daily?.at(-1) || {};
+  const weekly = stats?.weekly?.at(-1) || {};
+  const monthly = stats?.monthly || [];
+  const sixMonthPages = monthly.reduce((sum, item) => sum + (item.pages || 0), 0);
+  const sixMonthBooks = monthly.reduce((sum, item) => sum + (item.books || 0), 0);
+  const sixMonthMinutes = monthly.reduce((sum, item) => sum + (item.minutes || 0), 0);
+  const currentPages = Number(currentEntry?.pages_read) || 0;
+  const currentTotal = Number(currentEntry?.book?.total_pages) || 0;
+  const currentPercent = currentTotal ? Math.min(100, Math.round(currentPages / currentTotal * 100)) : 0;
+  const chartItems = chartPeriod === "daily" ? stats?.daily || [] : chartPeriod === "weekly" ? stats?.weekly || [] : monthly;
+
   return (
     <section id="library-content" className="reading-progress-view explore-view" aria-labelledby="reading-progress-title" aria-busy={loading}>
-      <div className="explore-heading">
+      <div className="explore-heading progress-heading">
         <div>
-          <p className="library-kicker">cada página conta</p>
-          <h1 id="reading-progress-title">Seu progresso de leitura.</h1>
-          <p className="explore-intro">Acompanhe as páginas avançadas e as obras concluídas ao longo do tempo.</p>
+          <p className="library-kicker">cada p&#225;gina conta</p>
+          <h1 id="reading-progress-title">Sua jornada liter&#225;ria.</h1>
+          <p className="explore-intro">Acompanhe sua evolu&#231;&#227;o, mantenha o ritmo e celebre suas conquistas.</p>
         </div>
       </div>
       {error && <p className="library-error" role="alert">{error}</p>}
-      {loading ? <p className="library-feedback" role="status">reunindo suas leituras…</p> : stats ? (
+      {loading ? <p className="library-feedback" role="status">reunindo suas leituras&#8230;</p> : stats ? (
         <>
-          <ReadingTimer accessToken={accessToken} onToken={onToken} todayMinutes={stats.daily?.at(-1)?.minutes || 0} onSessionStopped={() => setRefreshCount((count) => count + 1)} />
-          <section className="reading-summary" aria-label="Resumo deste período">
-            <ReadingSummary period="Hoje" item={stats.daily?.at(-1)} />
-            <ReadingSummary period="Esta semana" item={stats.weekly?.at(-1)} />
-            <ReadingSummary period="Este mês" item={stats.monthly?.at(-1)} />
+          <div className="progress-top-grid">
+            <section className="progress-current-card" aria-labelledby="progress-current-title">
+              <h2 id="progress-current-title"><span aria-hidden="true">▤</span> Leitura atual</h2>
+              {currentEntry ? <>
+                <div className="progress-current-card__book">
+                  {currentEntry.book.cover_url ? <img src={currentEntry.book.cover_url} alt={`Capa de ${currentEntry.book.title}`} /> : <span className="progress-current-card__fallback">{currentEntry.book.title.slice(0, 1)}</span>}
+                  <div className="progress-current-card__details"><h3>{currentEntry.book.title}</h3><p>{currentEntry.book.author}</p><div className="progress-current-card__meter"><span style={{ width: `${currentPercent}%` }} /></div><small>P&#225;ginas: {currentPages} / {currentTotal || "-"}<strong>{currentPercent}%</strong></small></div>
+                </div>
+                <button type="button" onClick={onGoToLibrary}>Alterar livro</button>
+              </> : <div className="progress-current-card__empty"><p>Nenhum livro em andamento.</p><button type="button" onClick={onGoToLibrary}>Escolher uma leitura</button></div>}
+            </section>
+            <ReadingTimer accessToken={accessToken} onToken={onToken} todayMinutes={today.minutes || 0} onSessionStopped={() => setRefreshCount((count) => count + 1)} />
+          </div>
+
+          <section className="progress-metric-row" aria-label="Resumo da leitura">
+            <article><span aria-hidden="true">▤</span><strong>{today.pages || 0}</strong><small>P&#225;ginas hoje</small></article>
+            <article><span aria-hidden="true">◷</span><strong>{today.minutes || 0}</strong><small>Minutos hoje</small></article>
+            <article><span aria-hidden="true">▱</span><strong>{weekly.pages || 0}</strong><small>P&#225;ginas na semana</small></article>
+            <article><span aria-hidden="true">♜</span><strong>{sixMonthBooks}</strong><small>Livros conclu&#237;dos &#183; 6 meses</small></article>
           </section>
-          <div className="reading-progress-grid">
-            <ReadingChart title="Por dia" description="Últimos 7 dias" items={stats.daily || []} />
-            <ReadingChart title="Por semana" description="Últimas 8 semanas" items={stats.weekly || []} />
-            <ReadingChart title="Por mês" description="Últimos 6 meses" items={stats.monthly || []} />
+
+          <div className="progress-lower-grid">
+            <section className="progress-evolution-card" aria-labelledby="progress-evolution-title">
+              <div className="progress-section-heading"><h2 id="progress-evolution-title">Evolu&#231;&#227;o de leitura</h2><div className="progress-period-switch" aria-label="Per&#237;odo do gr&#225;fico">
+                {[{ id: "daily", label: "7 dias" }, { id: "weekly", label: "8 semanas" }, { id: "monthly", label: "6 meses" }].map((period) => <button type="button" key={period.id} className={chartPeriod === period.id ? "is-active" : ""} aria-pressed={chartPeriod === period.id} onClick={() => setChartPeriod(period.id)}>{period.label}</button>)}
+              </div></div>
+              <ReadingChart title="P&#225;ginas lidas" description={chartPeriod === "daily" ? "\u00daltimos 7 dias" : chartPeriod === "weekly" ? "\u00daltimas 8 semanas" : "\u00daltimos 6 meses"} items={chartItems} />
+            </section>
+            <section className="progress-achievements" aria-labelledby="progress-achievements-title">
+              <h2 id="progress-achievements-title"><span aria-hidden="true">♜</span> Conquistas liter&#225;rias</h2>
+              <p>Seu percurso nos &#250;ltimos seis meses.</p>
+              {[{ label: "100 p\u00e1ginas lidas", value: sixMonthPages, target: 100, icon: "▤" }, { label: "3 livros conclu\u00eddos", value: sixMonthBooks, target: 3, icon: "▱" }, { label: "600 minutos de leitura", value: sixMonthMinutes, target: 600, icon: "◷" }].map((achievement) => {
+                const progress = Math.min(100, Math.round((achievement.value / achievement.target) * 100));
+                return <div className={`progress-achievement${progress >= 100 ? " is-complete" : ""}`} key={achievement.label}><span aria-hidden="true">{progress >= 100 ? "✓" : achievement.icon}</span><div><strong>{achievement.label}</strong><small>{achievement.value} / {achievement.target}</small><div className="progress-achievement__track"><i style={{ width: `${progress}%` }} /></div></div></div>;
+              })}
+            </section>
           </div>
         </>
-      ) : <p className="library-feedback">Não foi possível carregar seu progresso.</p>}
-      <p className="reading-progress-note">Os gráficos contam avanços registrados a partir da ativação deste histórico.</p>
-    </section>
-  );
+      ) : <p className="library-feedback">N&#227;o foi poss&#237;vel carregar seu progresso.</p>}
+      <p className="reading-progress-note">Os gr&#225;ficos contam avan&#231;os registrados a partir da ativa&#231;&#227;o deste hist&#243;rico.</p>
+    </section>  );
 }
 
 async function fetchAllPages(path, accessToken, onToken) {
@@ -867,7 +922,7 @@ function SharedLibrariesView({ accessToken, onToken, username, onUnreadChange })
             const own = reading.find((state) => state.shared_library_id === selectedId && state.book_id === item.book.id);
             const edit = own ? edits[own.id] || { status: own.status, pages_read: own.pages_read } : null;
             const pending = requests.some((request) => request.shared_book_id === item.id && request.status === "PENDING");
-            return <article className="shared-book-card" key={item.id}>{item.book.cover_url ? <img src={item.book.cover_url} alt={`Capa de ${item.book.title}`} onError={(event) => { event.currentTarget.hidden = true; }} /> : <div className="shared-book-card__cover">{item.book.title.slice(0, 1)}</div>}<div className="shared-book-card__body"><p className="library-kicker">adicionado por {item.added_by}</p><h4>{item.book.title}</h4><p>{item.book.author}</p><ul>{item.reading_states.map((state) => <li key={state.id}><span>{state.username}</span><small>{statusLabel(state.status)} · {state.pages_read}{item.book.total_pages ? `/${item.book.total_pages}` : ""} páginas</small></li>)}</ul>
+            return <article className="shared-book-card" key={item.id}>{item.book.cover_url && <img src={item.book.cover_url} alt={`Capa de ${item.book.title}`} onError={(event) => { event.currentTarget.hidden = true; }} />}<div className="shared-book-card__body"><p className="library-kicker">adicionado por {item.added_by}</p><h4>{item.book.title}</h4><p>{item.book.author}</p><ul>{item.reading_states.map((state) => <li key={state.id}><span>{state.username}</span><small>{statusLabel(state.status)} · {state.pages_read}{item.book.total_pages ? `/${item.book.total_pages}` : ""} páginas</small></li>)}</ul>
               {own && <form className="shared-progress-form" onSubmit={(event) => { event.preventDefault(); saveProgress(item); }}><label>Seu status<select value={edit.status} onChange={(event) => setEdits((current) => ({ ...current, [own.id]: { ...edit, status: event.target.value } }))}><option value="WANT_TO_READ">Desejos</option><option value="READING">Lendo</option><option value="READ">Já lidos</option></select></label><label>Páginas<input type="number" min="0" max={item.book.total_pages || undefined} value={edit.pages_read} onChange={(event) => setEdits((current) => ({ ...current, [own.id]: { ...edit, pages_read: event.target.value } }))} /></label><button type="submit" disabled={busy}>salvar meu progresso</button></form>}
               <button className="shared-remove-button" type="button" disabled={busy || (item.added_by !== activeUsername && pending)} onClick={() => removeBook(item)}>{item.added_by === activeUsername ? "remover da estante" : pending ? "aguardando autorização" : "pedir remoção da obra"}</button>
             </div></article>;
@@ -898,7 +953,39 @@ function CatalogExplorer({ accessToken, onToken }) {
   const [addingBook, setAddingBook] = useState(null);
   const [addedBooks, setAddedBooks] = useState({});
   const [feedback, setFeedback] = useState({});
+  const [suggestedBooks, setSuggestedBooks] = useState([
+    { id: "suggestion-prince", title: "O Pequeno Príncipe", author: "Antoine de Saint-Exupéry", search: "O Pequeno Príncipe" },
+    { id: "suggestion-hobbit", title: "O Hobbit", author: "J. R. R. Tolkien", search: "O Hobbit" },
+    { id: "suggestion-1984", title: "1984", author: "George Orwell", search: "1984" },
+  ]);
 
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const suggestions = [
+      { id: "suggestion-prince", search: "O Pequeno Príncipe" },
+      { id: "suggestion-hobbit", search: "O Hobbit" },
+      { id: "suggestion-1984", search: "1984" },
+    ];
+    Promise.all(suggestions.map(async (suggestion) => {
+      try {
+        const data = await getLibraryPage(`/books/discover/?search=${encodeURIComponent(suggestion.search)}`, accessToken, onToken, controller.signal);
+        const normalizedQuery = suggestion.search.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+        const match = (data.results || []).find((book) => book.title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").includes(normalizedQuery));
+        return { id: suggestion.id, cover_url: match?.cover_url || "", catalogBook: match || null };
+      } catch (requestError) {
+        if (requestError.name !== "AbortError") return { id: suggestion.id, cover_url: "", catalogBook: null };
+        return null;
+      }
+    })).then((discoveredBooks) => {
+      if (!active) return;
+      setSuggestedBooks((current) => current.map((book) => {
+        const discovered = discoveredBooks.find((item) => item?.id === book.id);
+        return { ...book, cover_url: discovered?.cover_url || "", average_rating: discovered?.catalogBook?.average_rating ?? null, catalogBook: discovered?.catalogBook || null };
+      }));
+    });
+    return () => { active = false; controller.abort(); };
+  }, [accessToken, onToken]);
   useEffect(() => {
     if (!submittedSearch && !submittedGenre) return undefined;
     const controller = new AbortController();
@@ -937,8 +1024,32 @@ function CatalogExplorer({ accessToken, onToken }) {
     setSubmittedGenre(nextGenre);
   }
 
-  async function addBook(book) {
-    const category = categories[book.id] || "WANT_TO_READ";
+  function searchForSuggestion(value, type = "title") {
+    const nextValue = value.trim();
+    if (!nextValue) return;
+    setError("");
+    setPage(1);
+    setSearch(type === "genre" ? "" : nextValue);
+    setGenre(type === "genre" ? nextValue : "");
+    setSubmittedSearch(type === "genre" ? "" : nextValue);
+    setSubmittedGenre(type === "genre" ? nextValue : "");
+  }
+
+  function clearSearch() {
+    setSearch("");
+    setGenre("");
+    setSubmittedSearch("");
+    setSubmittedGenre("");
+    setResults([]);
+    setTotalBooks(0);
+    setHasNext(false);
+    setHasPrevious(false);
+    setError("");
+    setPage(1);
+  }
+
+  async function addBook(book, requestedCategory) {
+    const category = requestedCategory || categories[book.id] || "WANT_TO_READ";
     if (category === "READ" && !book.total_pages) {
       setFeedback((current) => ({ ...current, [book.id]: "Informe o total de páginas antes de marcar esta obra como lida." }));
       return;
@@ -977,6 +1088,15 @@ function CatalogExplorer({ accessToken, onToken }) {
 
   return (
     <section id="library-content" className="explore-view" aria-labelledby="explore-title" aria-busy={loading}>
+      <div className="explore-dashboard">
+        <div className="explore-dashboard__main">
+      <div className="explore-heading explore-heading--primary">
+        <div>
+          <p className="library-kicker">descubra novas histórias</p>
+          <h1 id="explore-title">Encontre sua próxima leitura.</h1>
+          <p className="explore-intro">Pesquise no catálogo, aplique filtros e descubra obras que combinam com o seu momento.</p>
+        </div>
+      </div>
       <form className="explore-search" onSubmit={submitSearch} aria-label="Buscar livros no catálogo">
         <label className="explore-search__query">
           <span>Obra ou autor</span>
@@ -990,17 +1110,21 @@ function CatalogExplorer({ accessToken, onToken }) {
           <input value={genre} onChange={(event) => setGenre(event.target.value)} placeholder="Ex.: fantasia" />
         </label>
         <button className="library-primary-button" type="submit" disabled={loading}>{loading ? "buscando…" : "buscar obras"}</button>
+        <button className="explore-search__clear" type="button" onClick={clearSearch} disabled={!search && !genre && !submittedSearch && !submittedGenre}>Limpar filtros</button>
       </form>
 
-      <div className="explore-heading">
-        <div>
-          <p className="library-kicker">amplie sua coleção</p>
-          <h1 id="explore-title">Encontre sua próxima leitura.</h1>
-          <p className="explore-intro">Busque por título, autor ou gênero e descubra novas histórias para sua estante.</p>
-        </div>
-        {(submittedSearch || submittedGenre) && <p className="explore-count">{totalBooks} {totalBooks === 1 ? "resultado nesta página" : "resultados nesta página"}</p>}
+      <div className="explore-popular-searches" aria-label="Buscas populares">
+        <span>Buscas populares</span>
+        <button type="button" onClick={() => searchForSuggestion("Fantasia", "genre")}>Fantasia</button>
+        <button type="button" onClick={() => searchForSuggestion("ficção científica", "genre")}>Ficção científica</button>
+        <button type="button" onClick={() => searchForSuggestion("Machado de Assis")}>Machado de Assis</button>
+        <button type="button" onClick={() => searchForSuggestion("O Pequeno Príncipe")}>O Pequeno Príncipe</button>
       </div>
 
+      <div className="catalog-results-heading">
+        <h2>Resultados do catálogo</h2>
+        {(submittedSearch || submittedGenre) && <span>{totalBooks} {totalBooks === 1 ? "obra encontrada" : "obras encontradas"}</span>}
+      </div>
       {error && <p className="library-error explore-error" role="alert">{error}</p>}
       {loading ? (
         <div className="explore-state" role="status"><span className="loading-mark" aria-hidden="true" />Consultando o catálogo…</div>
@@ -1017,13 +1141,20 @@ function CatalogExplorer({ accessToken, onToken }) {
                   <span className="catalog-card__cover-shadow" aria-hidden="true" />
                 </div>
                 <div className="catalog-card__body">
+                  <button className={`catalog-card__bookmark${addedBooks[book.id] ? " is-saved" : ""}`} type="button" disabled={Boolean(addingBook) || Boolean(addedBooks[book.id])} onClick={() => addBook(book, "WANT_TO_READ")} aria-label={addedBooks[book.id] ? `${book.title} está na sua biblioteca` : `Adicionar ${book.title} à lista de desejos`} title={addedBooks[book.id] ? "Adicionado à sua biblioteca" : "Adicionar à lista de desejos"}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.5h12v16l-6-4-6 4z" /></svg>
+                  </button>
                   <p className="catalog-card__eyebrow">{book.genre || "obra do catálogo"}</p>
                   <h2>{book.title}</h2>
                   <p className="catalog-card__author">{book.author}</p>
-                  <p className="catalog-card__source">Fonte: {book.source || "Catálogo MyBooks"}{book.external_url && <> · <a href={book.external_url} target="_blank" rel="noreferrer">ver registro</a></>}</p>
+                  <div className="catalog-card__rating" aria-label={book.average_rating != null ? `Avaliação média ${Number(book.average_rating).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} de 5${book.ratings_count ? `, ${book.ratings_count} avaliações` : ""}` : "Esta obra ainda não tem avaliação disponível"}>
+                    <span aria-hidden="true">★</span>
+                    {book.average_rating != null ? <strong>{Number(book.average_rating).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}{book.ratings_count ? ` (${new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(book.ratings_count)})` : ""}</strong> : <small>Sem avaliações</small>}
+                  </div>
                   <div className="catalog-card__facts">
                     {book.total_pages ? <span>{book.total_pages} páginas</span> : <span>páginas não informadas</span>}
                     {(book.publication_year || book.publication_date?.slice(0, 4)) && <span>{book.publication_year || book.publication_date.slice(0, 4)}</span>}
+                  <p className="catalog-card__source">Fonte: {book.source || "Catálogo MyBooks"}{book.external_url && <> · <a href={book.external_url} target="_blank" rel="noreferrer">ver registro</a></>}</p>
                   </div>
                   <p className="catalog-card__synopsis">{book.synopsis || "Ainda não há um resumo cadastrado para esta obra."}</p>
                   <div className="catalog-card__actions">
@@ -1059,6 +1190,27 @@ function CatalogExplorer({ accessToken, onToken }) {
           <p>{submittedSearch || submittedGenre ? "Experimente outro título, autor ou gênero." : "Pesquise no catálogo e encontre uma história para levar à sua estante."}</p>
         </div>
       )}
+        </div>
+
+        <aside className="explore-sidebar" aria-label="Sugestões de livros">
+          <section className="explore-suggestions" aria-labelledby="explore-suggestions-title">
+            <div className="explore-suggestions__heading">
+              <h2 id="explore-suggestions-title"><span aria-hidden="true">✧</span>Sugestões para sua estante</h2>
+              <p>Obras que costumam encantar leitores de fantasia e clássicos.</p>
+            </div>
+            {(results.length ? results.slice(0, 3).map((book) => ({ ...book, catalogBook: book })) : suggestedBooks).map((book) => (
+              <article className="explore-suggestion" key={book.id}>
+                {book.cover_url ? <img src={book.cover_url} alt={`Capa de ${book.title}`} loading="lazy" onError={(event) => { event.currentTarget.hidden = true; event.currentTarget.nextElementSibling.hidden = false; }} /> : null}
+                <span className="explore-suggestion__placeholder" aria-hidden="true" hidden={Boolean(book.cover_url)} />
+                <div><h3>{book.title}</h3><p>{book.author}</p></div>
+                {book.average_rating != null && <p className="explore-suggestion__rating" aria-label={`Avaliação ${Number(book.average_rating).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} de 5`}><span aria-hidden="true">★</span>{Number(book.average_rating).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</p>}
+                <button type="button" onClick={() => book.catalogBook ? addBook(book.catalogBook, "WANT_TO_READ") : searchForSuggestion(book.title)} aria-label={book.catalogBook ? `Adicionar ${book.title} à lista de desejos` : `Buscar ${book.title}`}>＋</button>
+              </article>
+            ))}
+            <button className="explore-suggestions__more" type="button" onClick={() => searchForSuggestion("fantasia", "genre")}>Ver mais sugestões</button>
+          </section>
+        </aside>
+      </div>
     </section>
   );
 }
@@ -1393,24 +1545,53 @@ function LibraryLanding({ onReturn }) {
     openBook(entry);
   }
 
+  const readingEntries = entries.filter((entry) => entry.status === "READING");
+  const readEntries = entries.filter((entry) => entry.status === "READ");
+  const wishEntries = entries.filter((entry) => entry.status === "WANT_TO_READ");
+  const currentReading = readingEntries[0];
+  const currentReadingPages = Number(currentReading?.pages_read) || 0;
+  const currentReadingTotal = Number(currentReading?.book.total_pages) || 0;
+  const currentReadingPercent = currentReadingTotal
+    ? Math.min(100, Math.round((currentReadingPages / currentReadingTotal) * 100))
+    : 0;
+  const collectionProgress = entries.length
+    ? Math.round((readEntries.length / entries.length) * 100)
+    : 0;
+
   return (
     <main id="library-main" className={`library-landing${accessToken ? " has-navigation library-landing--themed" : ""}${accessToken && activeView === "library" ? " library-landing--personal" : ""}`}>
       {accessToken && <a className="skip-link" href="#library-content">Pular para o conteúdo</a>}
       <header className={`library-header${accessToken ? "" : " library-header--login"}`}>
+        {accessToken && <button className="library-header__mark" type="button" onClick={() => setActiveView("library")} aria-label="Ir para minha biblioteca">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 5.5c2.6-.8 5-.3 7.5 1.2v12c-2.5-1.5-4.9-2-7.5-1.2zM19.5 5.5c-2.6-.8-5-.3-7.5 1.2v12c2.5-1.5 4.9-2 7.5-1.2z" /><path d="M12 6.7v12" /></svg>
+        </button>}
         <a className="library-wordmark" href="#inicio" onClick={(event) => { event.preventDefault(); onReturn(); }}>
           MyBooks<span aria-hidden="true">.</span>
         </a>
+        {accessToken && <nav className="library-navigation" aria-label="Navegação principal">
+          <button aria-label="Minha biblioteca" aria-current={activeView === "library" ? "page" : undefined} className={activeView === "library" ? "is-active" : ""} type="button" onClick={() => setActiveView("library")}><span aria-hidden="true" className="library-navigation__icon"><svg viewBox="0 0 24 24"><path d="M4.5 5.5c2.6-.8 5-.3 7.5 1.2v12c-2.5-1.5-4.9-2-7.5-1.2zM19.5 5.5c-2.6-.8-5-.3-7.5 1.2v12c2.5-1.5 4.9-2 7.5-1.2z" /><path d="M12 6.7v12" /></svg></span><span className="library-navigation__text--long">Minha biblioteca</span><span className="library-navigation__text--short" aria-hidden="true">Biblioteca</span></button>
+          <button aria-label="Explorar obras" aria-current={activeView === "explore" ? "page" : undefined} className={activeView === "explore" ? "is-active" : ""} type="button" onClick={() => setActiveView("explore")}><span aria-hidden="true" className="library-navigation__icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="m14.8 9.2-2 4.1-3.6 1.5 1.7-3.8z" /></svg></span><span className="library-navigation__text--long">Explorar obras</span><span className="library-navigation__text--short" aria-hidden="true">Explorar</span></button>
+          <button aria-label="Progresso" aria-current={activeView === "progress" ? "page" : undefined} className={activeView === "progress" ? "is-active" : ""} type="button" onClick={() => setActiveView("progress")}><span aria-hidden="true" className="library-navigation__icon"><svg viewBox="0 0 24 24"><path d="M4 19h3V11H4zM10.5 19h3V7h-3zM17 19h3V4h-3z" /></svg></span><span>Progresso</span></button>
+          <button aria-label="Biblioteca compartilhada" aria-current={activeView === "shared" ? "page" : undefined} className={activeView === "shared" ? "is-active" : ""} type="button" onClick={() => setActiveView("shared")}><span aria-hidden="true" className="library-navigation__icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3" /><path d="M3.5 19c.4-3.3 2.2-5 5.5-5s5.1 1.7 5.5 5M16 5.5a3 3 0 0 1 0 5.8m1 3c2.1.5 3.3 2 3.5 4.7" /></svg></span><span className="library-navigation__text--long">Compartilhada</span><span className="library-navigation__text--short" aria-hidden="true">Juntos</span></button>
+        </nav>}
         <div className="library-header__actions">
+          {accessToken && <>
+            <button className="library-header__icon-button library-header__search" type="button" aria-label="Buscar obras" onClick={() => setActiveView("explore")}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3" /><path d="m15.5 15.5 4.1 4.1" /></svg>
+            </button>
+            <button className="library-header__icon-button library-header__notifications" type="button" aria-label={navUnread ? `${navUnread} notificações não lidas` : "Notificações"} onClick={() => setActiveView("shared")}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-2.5 7-2.5 8.5h17C20.5 16 18 16 18 9ZM10 21h4" /></svg>
+              {navUnread > 0 && <span className="library-header__notification-dot" aria-hidden="true">{navUnread > 9 ? "9+" : navUnread}</span>}
+            </button>
+            <Avatar className="library-header__avatar" role="img" aria-label={username ? `Usuário ${username}` : "Perfil do usuário"}>
+              <AvatarFallback>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.2" /><path d="M5.5 20c.5-3.8 2.9-5.8 6.5-5.8s6 2 6.5 5.8" /></svg>
+              </AvatarFallback>
+            </Avatar>
+          </>}
           {accessToken && <button className="library-text-button" type="button" onClick={signOut}>sair</button>}
         </div>
       </header>
-      {accessToken && <nav className="library-navigation" aria-label="Navegação principal">
-        <p className="library-navigation__label">Seu espaço</p>
-        <button aria-label="Minha biblioteca" aria-current={activeView === "library" ? "page" : undefined} className={activeView === "library" ? "is-active" : ""} type="button" onClick={() => setActiveView("library")}><span className="library-navigation__text--long">Minha biblioteca</span><span className="library-navigation__text--short" aria-hidden="true">Biblioteca</span></button>
-        <button aria-label="Explorar obras" aria-current={activeView === "explore" ? "page" : undefined} className={activeView === "explore" ? "is-active" : ""} type="button" onClick={() => setActiveView("explore")}><span className="library-navigation__text--long">Explorar obras</span><span className="library-navigation__text--short" aria-hidden="true">Explorar</span></button>
-        <button aria-label="Progresso" aria-current={activeView === "progress" ? "page" : undefined} className={activeView === "progress" ? "is-active" : ""} type="button" onClick={() => setActiveView("progress")}><span>Progresso</span></button>
-        <button aria-label="Biblioteca compartilhada" aria-current={activeView === "shared" ? "page" : undefined} className={activeView === "shared" ? "is-active" : ""} type="button" onClick={() => setActiveView("shared")}><span className="library-navigation__text--long">Compartilhada</span><span className="library-navigation__text--short" aria-hidden="true">Juntos</span>{navUnread > 0 && <span className="library-navigation__badge" aria-label={`${navUnread} cartas não lidas`}>{navUnread > 9 ? "9+" : navUnread}</span>}</button>
-      </nav>}
       {!accessToken ? (
         <div className="login-layout">
           <aside className="login-story" aria-label="Uma mensagem sobre leitura">
@@ -1482,11 +1663,20 @@ function LibraryLanding({ onReturn }) {
       ) : activeView === "explore" ? (
         <CatalogExplorer accessToken={accessToken} onToken={setAccessToken} />
       ) : activeView === "progress" ? (
-        <ReadingProgressView accessToken={accessToken} onToken={setAccessToken} />
+        <ReadingProgressView accessToken={accessToken} onToken={setAccessToken} onGoToLibrary={() => setActiveView("library")} />
       ) : activeView === "shared" ? (
         <SharedLibrariesView accessToken={accessToken} onToken={setAccessToken} username={username || window.localStorage.getItem("mybooks:username") || ""} onUnreadChange={setNavUnread} />
       ) : (
         <section id="library-content" className="personal-library" aria-labelledby="library-title" aria-busy={loading}>
+          <div className="library-dashboard">
+            <div className="library-dashboard__main">
+              <div className="personal-library__heading">
+                <div>
+                  <p className="library-kicker">sua coleção pessoal</p>
+                  <h1 id="library-title">Minha Biblioteca</h1>
+                  <p className="library-dashboard__subtitle">Suas histórias, organizadas do seu jeito.</p>
+                </div>
+              </div>
           <form className="library-filters" onSubmit={applyFilters}>
             <div className="library-filters__fields">
               <label className="filter-search">
@@ -1534,16 +1724,6 @@ function LibraryLanding({ onReturn }) {
             </Tabs>
           </form>
 
-          <div className="personal-library__heading">
-            <div>
-              <p className="library-kicker">sua coleção pessoal</p>
-              <h1 id="library-title">Biblioteca</h1>
-            </div>
-            <p className="library-count">
-              <Badge variant="outline">{totalEntries} {totalEntries === 1 ? "livro" : "livros"}</Badge>
-            </p>
-          </div>
-
           {error && <p className="library-error" role="alert">{error}</p>}
           {loading ? (
             <div className="bookshelf bookshelf--loading" role="status" aria-label="Carregando sua biblioteca">
@@ -1557,12 +1737,13 @@ function LibraryLanding({ onReturn }) {
             </div>
           ) : entries.length ? (
             <div className="bookshelf" aria-label="Estante da sua biblioteca">
+              <span className="bookshelf-woodgrain" aria-hidden="true" />
               {groupIntoShelves(entries).map((shelf, shelfIndex) => {
                 const displayCount = shelf.filter((entry) => entry.id !== draggedBookId).length;
                 let displayIndex = 0;
                 return (
                 <section
-                  className={`bookshelf-row${dragOverShelf === shelfIndex ? " is-drop-target" : ""}${displayCount === 0 ? " is-empty-destination" : ""}`}
+                  className={`bookshelf-row${shelfIndex === 0 ? " bookshelf-row--display" : ""}${dragOverShelf === shelfIndex ? " is-drop-target" : ""}${displayCount === 0 ? " is-empty-destination" : ""}`}
                   key={`shelf-${shelfIndex}`}
                   aria-label={`Prateleira ${shelfIndex + 1}`}
                   data-shelf-index={shelfIndex}
@@ -1575,6 +1756,7 @@ function LibraryLanding({ onReturn }) {
                       const logicalIndex = isDraggedSource ? -1 : displayIndex++;
                       const palette = ["#784638", "#455c4c", "#a07645", "#584653", "#384e63", "#8a654b"];
                       const color = palette[(shelfIndex * 3 + bookIndex) % palette.length];
+                      const emblem = spineEmblem(entry.book.title);
                       const height = 166 + ((shelfIndex * 7 + bookIndex * 13) % 5) * 9;
                       const isPulled = pulledBookId === entry.id;
                       const isMoving = movingBookId === entry.id;
@@ -1600,6 +1782,7 @@ function LibraryLanding({ onReturn }) {
                             onClick={(event) => openBookUnlessDragged(event, entry)}
                           >
                             <span className="shelf-volume__top" aria-hidden="true" />
+                            <span className="shelf-volume__ornament" aria-hidden="true">{emblem}</span>
                             <span className="shelf-volume__title">{entry.book.title}</span>
                             <span className="shelf-volume__author">{entry.book.author}</span>
                             <span className="shelf-volume__bottom" aria-hidden="true">{entry.status === "READ" ? "✓" : entry.status === "READING" ? "◒" : "✦"}</span>
@@ -1609,6 +1792,36 @@ function LibraryLanding({ onReturn }) {
                     })}
                     {dragOverShelf === shelfIndex && dragOverPosition === displayCount && displayCount > 0 && <span className="bookshelf-insertion-marker" aria-hidden="true" />}
                   </div>
+                  {shelfIndex === 0 && <div className="shelf-display-props" aria-hidden="true">
+                    <span className="shelf-spotlight shelf-spotlight--left"><i /></span>
+                    <span className="shelf-spotlight shelf-spotlight--right"><i /></span>
+                    <span className="shelf-lamp"><i /></span>
+                    <svg className="shelf-globe" viewBox="0 0 100 146" fill="none">
+                      <defs>
+                        <radialGradient id="globe-ocean" cx="35%" cy="28%" r="78%"><stop stopColor="#78918a"/><stop offset=".58" stopColor="#405b55"/><stop offset="1" stopColor="#243c38"/></radialGradient>
+                        <linearGradient id="globe-brass" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#e2c27f"/><stop offset=".45" stopColor="#9f753d"/><stop offset="1" stopColor="#604326"/></linearGradient>
+                        <clipPath id="globe-map-clip"><circle cx="50" cy="47" r="34"/></clipPath>
+                      </defs>
+                      <ellipse cx="51" cy="132" rx="26" ry="4" fill="#140d08" opacity=".32"/>
+                      <path d="M50 6C30 7 15 24 15 46s15 40 35 41 35-19 35-41S70 7 50 6Z" stroke="url(#globe-brass)" strokeWidth="3"/>
+                      <circle cx="50" cy="47" r="34" fill="url(#globe-ocean)" stroke="#d4b16e" strokeWidth="2.5"/>
+                      <g clipPath="url(#globe-map-clip)" fill="#c7ad76" stroke="#e2cc96" strokeWidth=".75">
+                        <path d="m23 24 7-5 7 2 4 5-3 5 4 4-3 5-5 1-3 7-5-2-2-8-5-4 3-6-3-4Z"/>
+                        <path d="m39 48 6 2 4 8-2 9-5 12-4-4 1-8-4-7 2-6-2-3Z"/>
+                        <path d="m50 24 6-4 7 2 3 5-5 3-2 6-7-1-4-5 2-6Z"/>
+                        <path d="m54 38 8-4 7 3 4 9-5 7-4 10-6 3-4-7 2-8-5-4 3-9Z"/>
+                        <path d="m72 62 7-2 4 5-4 6-8-2-3-4 4-3Z"/>
+                      </g>
+                      <g clipPath="url(#globe-map-clip)" stroke="#ead49f" strokeWidth=".8" opacity=".48">
+                        <path d="M16 35c20 8 48 8 68 0M16 58c20-8 48-8 68 0M50 13c-11 11-16 22-16 34s5 24 16 34M50 13c11 11 16 22 16 34s-5 24-16 34"/>
+                        <path d="M15 47h70" strokeWidth="1.1"/>
+                      </g>
+                      <path d="M26 22c8-9 19-13 29-12" stroke="#fff0bf" strokeWidth="2" strokeLinecap="round" opacity=".6"/>
+                      <circle cx="50" cy="47" r="36.5" stroke="url(#globe-brass)" strokeWidth="1.5"/>
+                      <path d="M50 83v8m-8 0h16l5 23H37l5-23Zm3 23h10l5 16H41l4-16Zm-13 18h30l6 5H30l6-5Z" stroke="url(#globe-brass)" strokeWidth="3" strokeLinejoin="round"/>
+                      <circle cx="50" cy="91" r="3" fill="#d8bb79"/>
+                    </svg>
+                  </div>}
                   <div className="bookshelf-plank" aria-hidden="true"><span /></div>
                 </section>
               ); })}
@@ -1626,6 +1839,7 @@ function LibraryLanding({ onReturn }) {
                     }}
                   >
                     <span className="shelf-volume__top" />
+                    <span className="shelf-volume__ornament">{spineEmblem(bookDragRef.current.entry.book.title)}</span>
                     <span className="shelf-volume__title">{bookDragRef.current.entry.book.title}</span>
                     <span className="shelf-volume__author">{bookDragRef.current.entry.book.author}</span>
                     <span className="shelf-volume__bottom">{bookDragRef.current.entry.status === "READ" ? "✓" : bookDragRef.current.entry.status === "READING" ? "◒" : "✦"}</span>
@@ -1661,6 +1875,61 @@ function LibraryLanding({ onReturn }) {
               </PaginationContent>
             </Pagination>
           )}
+            </div>
+
+            <aside className="library-overview" aria-label="Resumo da biblioteca">
+              <button className="library-primary-button library-add-book" type="button" onClick={() => setActiveView("explore")}>
+                <span aria-hidden="true">＋</span> Adicionar livro
+              </button>
+              <section className="library-overview-card" aria-labelledby="library-overview-progress-title">
+                <div className="library-overview-card__heading">
+                  <span className="library-overview-card__icon" aria-hidden="true">▥</span>
+                  <h2 id="library-overview-progress-title">Seu progresso</h2>
+                </div>
+                <div className="library-overview-progress">
+                  <div className="library-overview-progress__ring" style={{ "--progress": `${collectionProgress}%` }} aria-label={`${collectionProgress}% dos livros desta seleção concluídos`}>
+                    <span>{collectionProgress}%</span>
+                  </div>
+                  <p><strong>{readEntries.length} de {entries.length} livros lidos</strong><span>da seleção exibida</span></p>
+                </div>
+                <ul className="library-overview-list">
+                  <li><span><i aria-hidden="true">▤</i>Lendo agora</span><strong>{readingEntries.length}</strong></li>
+                  <li><span><i aria-hidden="true">✓</i>Concluídos</span><strong>{readEntries.length}</strong></li>
+                  <li><span><i aria-hidden="true">♧</i>Na lista de desejos</span><strong>{wishEntries.length}</strong></li>
+                </ul>
+              </section>
+
+              <section className="library-overview-card library-current-reading" aria-labelledby="library-current-reading-title">
+                <div className="library-overview-card__heading">
+                  <span className="library-overview-card__icon" aria-hidden="true">▧</span>
+                  <h2 id="library-current-reading-title">Leitura atual</h2>
+                </div>
+                {currentReading ? (
+                  <>
+                    <div className="library-current-reading__feature">
+                    <button className="library-current-reading__book" type="button" onClick={() => openBook(currentReading)} aria-label={`Abrir detalhes de ${currentReading.book.title}`}>
+                      {currentReading.book.cover_url
+                        ? <img src={currentReading.book.cover_url} alt="" onError={(event) => { event.currentTarget.hidden = true; }} />
+                        : <span className="library-current-reading__cover-fallback" aria-hidden="true">{currentReading.book.title.slice(0, 1)}</span>}
+                    </button>
+                    <div className="library-current-reading__details">
+                      <button className="library-current-reading__meta" type="button" onClick={() => openBook(currentReading)}>
+                        <strong>{currentReading.book.title}</strong><small>{currentReading.book.author}</small>
+                      </button>
+                    <div className="library-current-reading__progress" role="progressbar" aria-label={`Progresso em ${currentReading.book.title}`} aria-valuemin="0" aria-valuemax={currentReadingTotal || 100} aria-valuenow={currentReadingTotal ? currentReadingPages : currentReadingPercent}>
+                      <span style={{ width: `${currentReadingPercent}%` }} />
+                    </div>
+                    <p className="library-current-reading__pages">{currentReadingTotal ? `Páginas: ${currentReadingPages} / ${currentReadingTotal}` : `${currentReadingPercent}% concluído` }<strong>{currentReadingPercent}%</strong></p>
+                    </div>
+                    </div>
+                    <button className="library-current-reading__continue" type="button" onClick={() => openBook(currentReading)}>Continuar leitura <span aria-hidden="true">→</span></button>
+                  </>
+                ) : (
+                  <p className="library-current-reading__empty">Nenhuma leitura em andamento. Abra um livro e marque como “Lendo” para acompanhá-lo aqui.</p>
+                )}
+              </section>
+            </aside>
+          </div>
         </section>
       )}
       {openedEntry && <BookDetailDialog

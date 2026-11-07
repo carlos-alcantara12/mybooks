@@ -10,11 +10,14 @@ from django.utils import timezone
 
 from Backend.models import (
     Book,
+    LibraryEntry,
     ReadingActivity,
     ReadingSession,
     SharedLibrary,
+    SharedLibraryBook,
     SharedLibraryInvitation,
     SharedLibraryMembership,
+    SharedLibraryReading,
 )
 
 
@@ -29,6 +32,9 @@ if recipient is None:
 books = list(Book.objects.order_by("id")[:3])
 if not books:
     raise RuntimeError("O catálogo precisa ter ao menos uma obra cadastrada.")
+cover_books = list(Book.objects.exclude(cover_url="").order_by("id")[:5])
+if len(cover_books) < 3:
+    raise RuntimeError("O catálogo precisa ter ao menos três capas para a prévia compartilhada.")
 
 today = timezone.localdate()
 activity_specs = []
@@ -121,6 +127,52 @@ with transaction.atomic():
         shared_library=library,
         user=sender,
     )
+    preview_library, _ = SharedLibrary.objects.get_or_create(
+        owner=recipient,
+        name="Estante compartilhada — demonstração",
+    )
+    SharedLibraryMembership.objects.get_or_create(
+        shared_library=preview_library,
+        user=recipient,
+    )
+    SharedLibraryMembership.objects.get_or_create(
+        shared_library=preview_library,
+        user=sender,
+    )
+    demo_states = [
+        (LibraryEntry.Status.READ, 1.0, LibraryEntry.Status.READING, 0.42),
+        (LibraryEntry.Status.READING, 0.58, LibraryEntry.Status.WANT_TO_READ, 0),
+        (LibraryEntry.Status.WANT_TO_READ, 0, LibraryEntry.Status.READ, 1.0),
+        (LibraryEntry.Status.READING, 0.24, LibraryEntry.Status.READING, 0.67),
+        (LibraryEntry.Status.READ, 1.0, LibraryEntry.Status.WANT_TO_READ, 0),
+    ]
+    added_shared_books = 0
+    for index, book in enumerate(cover_books):
+        shared_book, created = SharedLibraryBook.objects.get_or_create(
+            shared_library=preview_library,
+            book=book,
+            defaults={"added_by": sender},
+        )
+        added_shared_books += int(created)
+        recipient_status, recipient_progress, sender_status, sender_progress = demo_states[index]
+        for user, status, progress in (
+            (recipient, recipient_status, recipient_progress),
+            (sender, sender_status, sender_progress),
+        ):
+            pages_read = 0
+            if book.total_pages:
+                pages_read = book.total_pages if status == LibraryEntry.Status.READ else round(book.total_pages * progress)
+            SharedLibraryReading.objects.update_or_create(
+                shared_library=preview_library,
+                user=user,
+                book=book,
+                defaults={
+                    "shared_book": shared_book,
+                    "status": status,
+                    "pages_read": pages_read,
+                },
+            )
+
     invitation, invitation_created = SharedLibraryInvitation.objects.get_or_create(
         shared_library=library,
         recipient=recipient,
@@ -135,4 +187,8 @@ print(
 print(
     f"Convite {invitation.pk}: {sender.username} convidou {recipient.username} "
     f"para '{library.name}' (criado agora: {invitation_created})."
+)
+print(
+    f"Prévia compartilhada '{preview_library.name}': {preview_library.books.count()} livros com capa, "
+    f"{added_shared_books} novos itens e progresso simulado para os dois participantes."
 )
