@@ -273,7 +273,6 @@ function WelcomeScreen({ onContinue }) {
       </section> : (
         <section className="welcome-intro" aria-labelledby="welcome-intro-title">
           <AnimatedContent className="welcome-intro__hero" trigger="mount" distance={32} duration={0.8} ease="power3.out" stagger={0.07}>
-            <p className="welcome-intro__eyebrow">MYBOOKS · UM CAPÍTULO DE CADA VEZ</p>
             <h1 id="welcome-intro-title">
               <SplitText
                 tag="span"
@@ -294,25 +293,25 @@ function WelcomeScreen({ onContinue }) {
           </AnimatedContent>
 
           <AnimatedContent className="welcome-intro__features" trigger="mount" distance={24} duration={0.7} ease="power3.out" delay={0.12} stagger={0.13}>
-            <SpecularButton className="welcome-intro__feature" size="md" radius={5} tint="#0a0c12" tintOpacity={0.78} textColor="#f2f3f7" lineColor="#dce5ff" baseColor="#59627b" idleIntensity={0.22} onClick={handleContinue}>
+            <SpecularButton className="welcome-intro__feature" size="md" radius={5} tint="#0a0c12" tintOpacity={0.78} textColor="#f2f3f7" lineColor="#aab8ff" baseColor="#59627b" intensity={0.8} idleIntensity={0.16} shineSize={8} shineFade={30} thickness={1} glow={0.55} onClick={handleContinue}>
               <span className="welcome-intro__number">01</span>
-              <h2>Sua leitura merece um lugar.</h2>
-              <p>Registre os livros que está lendo e guarde suas impressões.</p>
+              <span className="welcome-intro__feature-title">Sua leitura merece um lugar.</span>
+              <span className="welcome-intro__feature-description">Registre os livros que está lendo e guarde suas impressões.</span>
             </SpecularButton>
-            <SpecularButton className="welcome-intro__feature" size="md" radius={5} tint="#0a0c12" tintOpacity={0.78} textColor="#f2f3f7" lineColor="#dce5ff" baseColor="#59627b" idleIntensity={0.22} onClick={handleContinue}>
+            <SpecularButton className="welcome-intro__feature" size="md" radius={5} tint="#0a0c12" tintOpacity={0.78} textColor="#f2f3f7" lineColor="#aab8ff" baseColor="#59627b" intensity={0.8} idleIntensity={0.16} shineSize={8} shineFade={30} thickness={1} glow={0.55} onClick={handleContinue}>
               <span className="welcome-intro__number">02</span>
-              <h2>Acompanhe cada página.</h2>
-              <p>Veja seu progresso avançar e celebre as metas que concluir.</p>
+              <span className="welcome-intro__feature-title">Acompanhe cada página.</span>
+              <span className="welcome-intro__feature-description">Veja seu progresso avançar e celebre as metas que concluir.</span>
             </SpecularButton>
-            <SpecularButton className="welcome-intro__feature" size="md" radius={5} tint="#0a0c12" tintOpacity={0.78} textColor="#f2f3f7" lineColor="#dce5ff" baseColor="#59627b" idleIntensity={0.22} onClick={handleContinue}>
+            <SpecularButton className="welcome-intro__feature" size="md" radius={5} tint="#0a0c12" tintOpacity={0.78} textColor="#f2f3f7" lineColor="#aab8ff" baseColor="#59627b" intensity={0.8} idleIntensity={0.16} shineSize={8} shineFade={30} thickness={1} glow={0.55} onClick={handleContinue}>
               <span className="welcome-intro__number">03</span>
-              <h2>Compartilhe boas histórias.</h2>
-              <p>Convide amigos para trocar recomendações e ler em companhia.</p>
+              <span className="welcome-intro__feature-title">Compartilhe boas histórias.</span>
+              <span className="welcome-intro__feature-description">Convide amigos para trocar recomendações e ler em companhia.</span>
             </SpecularButton>
           </AnimatedContent>
 
           <AnimatedContent className="welcome-intro__action" trigger="mount" distance={18} duration={0.7} ease="power3.out" delay={0.48}>
-            <button className="welcome-intro__button" type="button" onClick={handleContinue}>Quero começar <span aria-hidden="true">→</span></button>
+            <SpecularButton className="welcome-intro__button" size="md" radius={3} tint="#93a7ff" tintOpacity={0.2} textColor="#f2f3f7" lineColor="#dce5ff" baseColor="#788bd6" intensity={1} idleIntensity={0.28} shineSize={11} shineFade={34} thickness={1.35} glow={0.8} onClick={handleContinue}>Quero começar <span aria-hidden="true">→</span></SpecularButton>
           </AnimatedContent>
         </section>
       )}
