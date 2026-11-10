@@ -17,6 +17,8 @@ import TextType from "./components/TextType";
 import DriftWall from "./components/DriftWall";
 import StrokeText from "./components/StrokeText";
 import AnimatedContent from "./components/AnimatedContent";
+import SplitText from "./components/SplitText";
+import SpecularButton from "./components/SpecularButton";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 const WELCOME_QUOTE_KEY = "mybooks:last-welcome-quote";
@@ -272,26 +274,41 @@ function WelcomeScreen({ onContinue }) {
         <section className="welcome-intro" aria-labelledby="welcome-intro-title">
           <AnimatedContent className="welcome-intro__hero" trigger="mount" distance={32} duration={0.8} ease="power3.out" stagger={0.07}>
             <p className="welcome-intro__eyebrow">MYBOOKS · UM CAPÍTULO DE CADA VEZ</p>
-            <h1 id="welcome-intro-title">Uma página de cada vez, sua próxima história começa aqui.</h1>
+            <h1 id="welcome-intro-title">
+              <SplitText
+                tag="span"
+                text="Uma página de cada vez, sua próxima história começa aqui."
+                className="welcome-intro__split"
+                effect="rise"
+                splitType="chars"
+                delay={18}
+                duration={0.9}
+                staggerFrom="center"
+                trigger="load"
+                color="#f2f3f7"
+                accentColor="#93a7ff"
+                textAlign="center"
+              />
+            </h1>
             <p className="welcome-intro__lead">Leia no seu ritmo. Guarde suas descobertas. Compartilhe o que faz uma história especial.</p>
           </AnimatedContent>
 
           <AnimatedContent className="welcome-intro__features" trigger="mount" distance={24} duration={0.7} ease="power3.out" delay={0.12} stagger={0.13}>
-            <article className="welcome-intro__feature">
+            <SpecularButton className="welcome-intro__feature" size="md" radius={5} tint="#0a0c12" tintOpacity={0.78} textColor="#f2f3f7" lineColor="#dce5ff" baseColor="#59627b" idleIntensity={0.22} onClick={handleContinue}>
               <span className="welcome-intro__number">01</span>
               <h2>Sua leitura merece um lugar.</h2>
               <p>Registre os livros que está lendo e guarde suas impressões.</p>
-            </article>
-            <article className="welcome-intro__feature">
+            </SpecularButton>
+            <SpecularButton className="welcome-intro__feature" size="md" radius={5} tint="#0a0c12" tintOpacity={0.78} textColor="#f2f3f7" lineColor="#dce5ff" baseColor="#59627b" idleIntensity={0.22} onClick={handleContinue}>
               <span className="welcome-intro__number">02</span>
               <h2>Acompanhe cada página.</h2>
               <p>Veja seu progresso avançar e celebre as metas que concluir.</p>
-            </article>
-            <article className="welcome-intro__feature">
+            </SpecularButton>
+            <SpecularButton className="welcome-intro__feature" size="md" radius={5} tint="#0a0c12" tintOpacity={0.78} textColor="#f2f3f7" lineColor="#dce5ff" baseColor="#59627b" idleIntensity={0.22} onClick={handleContinue}>
               <span className="welcome-intro__number">03</span>
               <h2>Compartilhe boas histórias.</h2>
               <p>Convide amigos para trocar recomendações e ler em companhia.</p>
-            </article>
+            </SpecularButton>
           </AnimatedContent>
 
           <AnimatedContent className="welcome-intro__action" trigger="mount" distance={18} duration={0.7} ease="power3.out" delay={0.48}>
