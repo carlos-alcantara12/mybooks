@@ -386,6 +386,12 @@ button { color: inherit; }
 .library-primary-button:hover:not(:disabled) { transform: translateY(-1px); background: #523722; }
 .library-primary-button:disabled { cursor: wait; opacity: .65; }
 .library-error { margin: 4px 0; color: #9a3e32; font-family: Arial, sans-serif; font-size: .9rem; }
+.library-load-error { display: grid; justify-items: center; gap: 12px; margin: 18px 0; padding: 28px 18px; border: 1px solid var(--app-border, rgba(99, 75, 57, .2)); border-radius: 10px; background: var(--app-panel, rgba(255, 252, 247, .78)); color: var(--app-text, #59493c); text-align: center; }
+.library-load-error p { margin: 0; }
+.library-load-error button { min-height: 38px; padding: 8px 14px; border: 1px solid var(--app-accent, #76502e); border-radius: 7px; background: var(--app-accent, #76502e); color: var(--app-button-ink, #fffaf2); font: inherit; cursor: pointer; }
+.library-load-error button:hover { filter: brightness(1.08); }
+.library-load-error button:focus-visible { outline: 2px solid var(--app-accent, #ad8a52); outline-offset: 3px; }
+.library-landing--themed .library-load-error button { color: #0b0c12; }
 .login-switch { margin: 22px 0 0; color: #827464; font-size: .95rem; }
 .login-switch button { margin-left: 6px; padding: 3px 0; border: 0; background: transparent; color: #805c3f; font-weight: 600; cursor: pointer; }
 .login-switch button:hover { color: #523722; text-decoration: underline; text-underline-offset: 3px; }
@@ -2924,6 +2930,35 @@ body:has(.library-landing--themed) .book-dialog__close { border-color: var(--app
 body:has(.library-landing--themed) .book-dialog__progress { background: #292c35; }
 body:has(.library-landing--themed) .book-dialog__progress span { background: var(--app-accent); }
 body:has(.library-landing--themed) .book-dialog__remove-confirm { border-color: var(--app-accent); background: var(--app-accent); color: #0b0c12; }
+body:has(.library-landing--themed) {
+  --app-bg: #050608;
+  --app-panel: #101116;
+  --app-panel-raised: #15171e;
+  --app-border: #292c35;
+  --app-text: #ffffff;
+  --app-muted: #c7cad4;
+  --app-accent: #93a7ff;
+  --app-accent-muted: #8798e8;
+}
+.library-landing--themed .reading-timer__goal-ring { background: conic-gradient(var(--app-accent) var(--goal-progress), #292c35 0); }
+.library-landing--themed .reading-timer__goal-ring::before { background: var(--app-panel); }
+.library-landing--themed .reading-timer__goal-ring span { color: var(--app-text); }
+.library-landing--themed .reading-chart__plot { border-color: var(--app-border); }
+.library-landing--themed .reading-chart__bars { border-color: var(--app-border); background: repeating-linear-gradient(to top, transparent 0 31px, rgba(221,226,242,.06) 32px); }
+.library-landing--themed :is(.reading-chart__swatch--pages, .reading-chart__bar--pages) { background: linear-gradient(180deg, #a8b6ff, #7285dc); }
+.library-landing--themed :is(.reading-chart__swatch--books, .reading-chart__bar--books) { background: linear-gradient(180deg, #d5d9e8, #8d94ad); }
+.library-landing--themed .progress-achievement.is-complete > span { border-color: var(--app-accent); background: rgba(147,167,255,.12); color: var(--app-accent); }
+.library-landing--themed .progress-achievement__track { background: #292c35; }
+.library-landing--themed .session-setup-modal { border-color: var(--app-border); background: var(--app-panel); color: var(--app-text); }
+.library-landing--themed .session-setup-modal :is(h2, p, label, span) { color: var(--app-text); }
+.library-landing--themed .session-setup-modal__actions button { border-color: var(--app-border); background: var(--app-panel-raised); color: var(--app-text); }
+.library-landing--themed .session-setup-modal__actions button[type="submit"] { border-color: var(--app-accent); background: var(--app-accent); color: #0b0c12; }
+.library-landing--themed .shared-letter-open { border-color: var(--app-border); background: var(--app-panel-raised); color: var(--app-text); }
+.library-landing--themed .shared-letter-open__envelope { border-color: var(--app-border); background: linear-gradient(145deg, #303440, #15171e); }
+.library-landing--themed .shared-letter-open__envelope::before { border-color: var(--app-border); background: #252833; }
+.library-landing--themed .shared-letter-close { border-color: var(--app-border); background: var(--app-panel-raised); color: var(--app-text); }
+.library-landing--themed .shared-letter-backdrop { background: rgba(0, 0, 0, .78); }
+.library-landing--themed .login-story__art { filter: grayscale(.8); }
 
 /* Keep the unauthenticated sign-in view in the same visual system. */
 .library-landing:not(.has-navigation) { color: #fff; background: radial-gradient(ellipse at 50% 35%, #161922, #090a0d 68%, #050608); }
@@ -2935,6 +2970,28 @@ body:has(.library-landing--themed) .book-dialog__remove-confirm { border-color: 
 .library-landing:not(.has-navigation) .login-form .library-primary-button { border-color: #93a7ff; background: #93a7ff; color: #0b0c12; }
 .library-landing:not(.has-navigation) .login-switch button,
 .library-landing:not(.has-navigation) .password-toggle { color: #93a7ff; }
+
+.welcome-book-drift {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  opacity: .47;
+}
+.welcome-screen .welcome-book-drift .drift-wall { -webkit-mask-image: none; mask-image: none; }
+.welcome-book-drift::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 47%, rgba(5, 6, 8, .82) 0%, rgba(5, 6, 8, .64) 28%, rgba(5, 6, 8, .28) 58%, rgba(5, 6, 8, .08) 84%);
+  content: "";
+  pointer-events: none;
+}
+.welcome-screen .welcome-content { position: relative; z-index: 1; pointer-events: none; }
+.welcome-screen .welcome-frame { z-index: 2; }
+@media (max-width: 640px) {
+  .welcome-book-drift { inset: 0; opacity: .42; }
+  .welcome-book-drift::after { background: radial-gradient(ellipse at 50% 47%, rgba(5,6,8,.86) 0%, rgba(5,6,8,.68) 34%, rgba(5,6,8,.3) 69%, rgba(5,6,8,.1) 92%); }
+}
 
 /* Keep the welcome identity isolated from the library's warm paper theme. */
 .welcome-screen {
@@ -2981,6 +3038,7 @@ body:has(.library-landing--themed) .book-dialog__remove-confirm { border-color: 
   letter-spacing: .015em;
 }
 .welcome-literary-quote footer { color: var(--welcome-attribution); font-family: "Manrope", Arial, sans-serif; font-size: .62rem; letter-spacing: .18em; }
+
 @media (max-width: 640px) {
   .welcome-frame { inset: 14px; }
   .brand-name { font-size: clamp(3.3rem, 14vw, 5rem); letter-spacing: .035em; }

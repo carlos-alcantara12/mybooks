@@ -14,6 +14,7 @@ import { Progress } from "./components/ui/progress";
 import { Skeleton } from "./components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
 import TextType from "./components/TextType";
+import DriftWall from "./components/DriftWall";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 const WELCOME_QUOTE_KEY = "mybooks:last-welcome-quote";
@@ -25,6 +26,48 @@ const welcomeQuotes = [
   { text: "Todos os animais são iguais, mas alguns são mais iguais que outros.", work: "A revolução dos bichos", author: "George Orwell" },
   { text: "Meu Deus, um momento inteiro de felicidade! Isso é pouco para uma vida inteira?", work: "Noites brancas", author: "Fiódor Dostoiévski" },
   { text: "A geografia do Reino Unido não mudou.", work: "O poder da geografia", author: "Tim Marshall" },
+];
+const welcomeBookCovers = [
+  { image: "https://covers.openlibrary.org/b/isbn/9780451524935-L.jpg?default=false", title: "1984" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780547928227-L.jpg?default=false", title: "O Hobbit" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780156012195-L.jpg?default=false", title: "O Pequeno Príncipe" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780060850524-L.jpg?default=false", title: "Admirável Mundo Novo" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780141439518-L.jpg?default=false", title: "Orgulho e Preconceito" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780743273565-L.jpg?default=false", title: "O Grande Gatsby" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780316769488-L.jpg?default=false", title: "O Apanhador no Campo de Centeio" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780061120084-L.jpg?default=false", title: "O Sol é Para Todos" },
+  { image: "https://covers.openlibrary.org/b/isbn/9781451673319-L.jpg?default=false", title: "Fahrenheit 451" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780486415871-L.jpg?default=false", title: "Crime e Castigo" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780441172719-L.jpg?default=false", title: "Duna" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780062316097-L.jpg?default=false", title: "Sapiens" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780486282114-L.jpg?default=false", title: "Frankenstein" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780486411095-L.jpg?default=false", title: "Drácula" },
+  { image: "https://covers.openlibrary.org/b/isbn/9781503222688-L.jpg?default=false", title: "Alice no País das Maravilhas" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780385490818-L.jpg?default=false", title: "O Conto da Aia" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780375842207-L.jpg?default=false", title: "A Menina que Roubava Livros" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780553418026-L.jpg?default=false", title: "Perdido em Marte" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780525559474-L.jpg?default=false", title: "A Biblioteca da Meia-Noite" },
+  { image: "https://covers.openlibrary.org/b/isbn/9781250301697-L.jpg?default=false", title: "A Paciente Silenciosa" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780141439570-L.jpg?default=false", title: "O Retrato de Dorian Gray" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780374528379-L.jpg?default=false", title: "Os Irmãos Karamázov" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780679720201-L.jpg?default=false", title: "O Estrangeiro" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780553296983-L.jpg?default=false", title: "O Diário de Anne Frank" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780735211292-L.jpg?default=false", title: "Hábitos Atômicos" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780399590504-L.jpg?default=false", title: "Educada" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780374533557-L.jpg?default=false", title: "Rápido e Devagar" },
+  { image: "https://covers.openlibrary.org/b/isbn/9781590302255-L.jpg?default=false", title: "A Arte da Guerra" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780061129735-L.jpg?default=false", title: "A Arte de Amar" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780756404741-L.jpg?default=false", title: "O Nome do Vento" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780060883287-L.jpg?default=false", title: "Cem Anos de Solidão" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780140449266-L.jpg?default=false", title: "O Conde de Monte Cristo" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780679720218-L.jpg?default=false", title: "A Peste" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780061148514-L.jpg?default=false", title: "A Redoma de Vidro" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780375704024-L.jpg?default=false", title: "Crônica do Pássaro de Corda" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780547773742-L.jpg?default=false", title: "O Feiticeiro de Terramar" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780441478125-L.jpg?default=false", title: "A Mão Esquerda da Escuridão" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780141439686-L.jpg?default=false", title: "Persuasão" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780451419439-L.jpg?default=false", title: "Os Miseráveis" },
+  { image: "https://covers.openlibrary.org/b/isbn/9780060934347-L.jpg?default=false", title: "Dom Quixote" },
 ];
 
 function chooseWelcomeQuote() {
@@ -154,6 +197,31 @@ function WelcomeScreen({ onContinue }) {
     >
       <div className="welcome-grain" aria-hidden="true" />
       <div className="welcome-depth" aria-hidden="true" />
+      <div className="welcome-book-drift" aria-hidden="true">
+        <DriftWall
+          items={welcomeBookCovers}
+          columns={8}
+          tileWidth={170}
+          tileHeight={248}
+          gap={18}
+          radius={5}
+          tilt={11}
+          turn={-9}
+          perspective={1400}
+          depth={90}
+          speed={13}
+          direction="up"
+          variance={0.28}
+          parallax={0.24}
+          lift={42}
+          fade={0.18}
+          dim={0.72}
+          grayscale={false}
+          overlayColor="#050608"
+          label="Capas de livros"
+          style={{ "--dw-tile-w": "clamp(112px, 12vw, 182px)", "--dw-tile-h": "clamp(168px, 21vh, 250px)" }}
+        />
+      </div>
       <div className="welcome-frame" aria-hidden="true">
         <span className="frame-corner frame-corner--top-left" />
         <span className="frame-corner frame-corner--top-right" />
@@ -192,7 +260,6 @@ function WelcomeScreen({ onContinue }) {
           </div>
 
         </div>
-
       </section>
     </main>
   );
@@ -241,7 +308,7 @@ async function getLibraryPage(path, token, onToken, signal) {
 
   if (!response.ok) {
     if (typeof data.detail === "string") throw new Error(data.detail);
-    throw new Error("Não foi possível carregar sua biblioteca.");
+    throw new Error(`A API respondeu com erro HTTP ${response.status} ao consultar ${path.split("?")[0]}.`);
   }
   return data;
 }
@@ -1594,6 +1661,7 @@ function LibraryLanding({ onReturn }) {
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
   const [totalEntries, setTotalEntries] = useState(0);
+  const [libraryLoadError, setLibraryLoadError] = useState("");
   const [loading, setLoading] = useState(false);
   const [movingBookId, setMovingBookId] = useState(null);
   const [draggedBookId, setDraggedBookId] = useState(null);
@@ -1669,6 +1737,7 @@ function LibraryLanding({ onReturn }) {
     if (submittedStatus) params.set("status", submittedStatus);
 
     setLoading(true);
+    setLibraryLoadError("");
     setError("");
     getLibraryPage(`/library/?${params.toString()}`, accessToken, setAccessToken, controller.signal)
       .then((data) => {
@@ -1679,7 +1748,7 @@ function LibraryLanding({ onReturn }) {
       })
       .catch((requestError) => {
         if (requestError.name !== "AbortError") {
-          setError(requestError.message);
+          setLibraryLoadError(requestError.message);
           if (requestError.message.includes("sessão expirou")) signOut();
         }
       })
@@ -2090,7 +2159,12 @@ function LibraryLanding({ onReturn }) {
           </form>
 
           {error && <p className="library-error" role="alert">{error}</p>}
-          {loading ? (
+          {libraryLoadError ? (
+            <div className="library-load-error" role="alert">
+              <p>{libraryLoadError}</p>
+              <button type="button" onClick={() => setLibraryRevision((revision) => revision + 1)}>Tentar novamente</button>
+            </div>
+          ) : loading ? (
             <div className="bookshelf bookshelf--loading" role="status" aria-label="Carregando sua biblioteca">
               <div className="bookshelf-row">
                 <div className="bookshelf-books">
