@@ -14,10 +14,26 @@ from django.core.cache import cache
 
 GOOGLE_BOOKS_URL = "https://www.googleapis.com/books/v1/volumes"
 PAGE_SIZE = 20
+PORTUGUESE_LANGUAGE_CODES = {"pt", "por", "pt-br", "pt-pt"}
+ENGLISH_LANGUAGE_CODES = {"en", "eng", "en-us", "en-gb"}
 
 
 class ExternalBookCatalogError(Exception):
     pass
+
+
+def _catalog_language(value):
+    values = value if isinstance(value, (list, tuple, set)) else [value]
+    codes = {str(item or "").strip().lower() for item in values if str(item or "").strip()}
+    if codes & PORTUGUESE_LANGUAGE_CODES:
+        return "pt"
+    if codes & ENGLISH_LANGUAGE_CODES:
+        return "en"
+    return "other" if codes else ""
+
+
+def _supported_language_results(results):
+    return [book for book in results if book.get("language") in {"pt", "en"}]
 
 
 def _fetch_json(url, user_agent="MyBooks/1.0"):
@@ -72,10 +88,15 @@ def normalize_google_volume(volume):
         "publication_date": publication_date,
         "publication_year": publication_year,
         "external_url": info.get("infoLink") or volume.get("selfLink") or "",
+        "average_rating": info.get("averageRating"),
+        "ratings_count": info.get("ratingsCount", 0),
+        "popularity_count": info.get("ratingsCount", 0),
+        "language": _catalog_language(info.get("language")),
+        "popularity_metric": "avaliações no Google Books",
     }
 
 
-def search_google_books(query, genre="", page=1):
+def search_google_books(query, genre="", page=1, popular=False):
     api_key = getattr(settings, "GOOGLE_BOOKS_API_KEY", "")
     if not api_key:
         raise ExternalBookCatalogError(
@@ -87,13 +108,13 @@ def search_google_books(query, genre="", page=1):
         search_terms = f"{search_terms} subject:{genre.strip()}".strip()
     params = {
         "q": search_terms,
-        "startIndex": (page - 1) * PAGE_SIZE,
-        "maxResults": PAGE_SIZE,
+        "startIndex": 0 if popular else (page - 1) * PAGE_SIZE,
+        "maxResults": 40 if popular else PAGE_SIZE,
         "printType": "books",
         "key": api_key,
     }
     cache_key = "mybooks:gbooks:search:" + hashlib.sha256(
-        f"{search_terms.casefold()}:{page}".encode("utf-8")
+        f"{search_terms.casefold()}:{'popular:' if popular else ''}{page}".encode("utf-8")
     ).hexdigest()
     cached = cache.get(cache_key)
     if cached is not None:
@@ -104,7 +125,11 @@ def search_google_books(query, genre="", page=1):
         normalized for item in payload.get("items", [])
         if (normalized := normalize_google_volume(item)) is not None
     ]
-    result = (results, int(payload.get("totalItems") or 0))
+    if popular:
+        results.sort(key=lambda item: (item["ratings_count"] or 0, item["average_rating"] or 0), reverse=True)
+        results = results[(page - 1) * PAGE_SIZE:page * PAGE_SIZE]
+    total_items = int(payload.get("totalItems") or 0)
+    result = (results, min(total_items, 40) if popular else total_items)
     cache.set(cache_key, result, timeout=60 * 15)
     return result
 
@@ -139,19 +164,26 @@ def normalize_open_library_work(work):
         "publication_date": None,
         "publication_year": str(year or ""),
         "external_url": f"https://openlibrary.org/works/{work_id}" if work_id else "",
+        "average_rating": work.get("ratings_average"),
+        "ratings_count": work.get("ratings_count", 0),
+        "popularity_count": work.get("readinglog_count", 0),
+        "language": _catalog_language(work.get("language")),
+        "popularity_metric": "leituras registradas no Open Library",
     }
 
 
-def search_open_library(query, genre="", page=1):
+def search_open_library(query, genre="", page=1, popular=False):
     search_terms = " ".join(part for part in (query.strip(), genre.strip()) if part)
     params = {
         "q": search_terms,
-        "fields": "key,title,author_name,first_publish_year,cover_i,number_of_pages_median,subject,first_sentence",
+        "fields": "key,title,author_name,first_publish_year,cover_i,number_of_pages_median,subject,first_sentence,readinglog_count,ratings_count,ratings_average,language",
         "limit": PAGE_SIZE,
         "page": page,
     }
+    if popular:
+        params["sort"] = "readinglog"
     cache_key = "mybooks:openlibrary:search:" + hashlib.sha256(
-        f"{search_terms.casefold()}:{page}".encode("utf-8")
+        f"{search_terms.casefold()}:{'popular:' if popular else ''}{page}".encode("utf-8")
     ).hexdigest()
     cached = cache.get(cache_key)
     if cached is not None:
@@ -169,18 +201,20 @@ def search_open_library(query, genre="", page=1):
     return result
 
 
-def search_external_books(query, genre="", page=1):
+def search_external_books(query, genre="", page=1, popular=False):
     google_error = None
     if getattr(settings, "GOOGLE_BOOKS_API_KEY", ""):
         try:
-            google_results, google_count = search_google_books(query, genre, page)
-            if google_results:
-                return google_results, google_count
+            google_results, google_count = search_google_books(query, genre, page, popular)
+            supported_results = _supported_language_results(google_results)
+            if supported_results:
+                return supported_results, google_count
         except ExternalBookCatalogError as error:
             google_error = error
 
     try:
-        return search_open_library(query, genre, page)
+        open_library_results, open_library_count = search_open_library(query, genre, page, popular)
+        return _supported_language_results(open_library_results), open_library_count
     except ExternalBookCatalogError as error:
         if google_error:
             raise google_error from error

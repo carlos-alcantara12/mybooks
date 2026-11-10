@@ -13,6 +13,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Progress } from "./components/ui/progress";
 import { Skeleton } from "./components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
+import TextType from "./components/TextType";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 const WELCOME_QUOTE_KEY = "mybooks:last-welcome-quote";
@@ -43,12 +44,59 @@ function chooseWelcomeQuote() {
   }
   return selected;
 }
+
+let discoveryRequestQueue = Promise.resolve();
+let lastDiscoveryRequestAt = 0;
+
+function waitForRequestDelay(delay, signal) {
+  if (signal?.aborted) return Promise.reject(new DOMException("A solicitação foi cancelada.", "AbortError"));
+  if (delay <= 0) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    function abort() {
+      window.clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+      reject(new DOMException("A solicitação foi cancelada.", "AbortError"));
+    }
+    const timer = window.setTimeout(() => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    }, delay);
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
+function queueDiscoveryRequest(signal) {
+  const scheduled = discoveryRequestQueue.catch(() => {}).then(async () => {
+    const wait = Math.max(0, 1150 - (Date.now() - lastDiscoveryRequestAt));
+    await waitForRequestDelay(wait, signal);
+    if (signal?.aborted) throw new DOMException("A solicitação foi cancelada.", "AbortError");
+    lastDiscoveryRequestAt = Date.now();
+  });
+  discoveryRequestQueue = scheduled.catch(() => {});
+  return scheduled;
+}
+
+async function fetchLibraryPageRequest(path, token, signal) {
+  if (path.split("?")[0].endsWith("/books/discover/")) await queueDiscoveryRequest(signal);
+  return fetch(`${API_BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal,
+  });
+}
+
 function WelcomeScreen({ onContinue }) {
   const [isLeaving, setIsLeaving] = useState(false);
   const screenRef = useRef(null);
   const continueTimerRef = useRef(null);
   const [quote] = useState(chooseWelcomeQuote);
   useEffect(() => () => window.clearTimeout(continueTimerRef.current), []);
+  useEffect(() => {
+    const themeColor = document.querySelector('meta[name="theme-color"]');
+    if (!themeColor) return undefined;
+    const previousColor = themeColor.content;
+    themeColor.content = "#050608";
+    return () => { themeColor.content = previousColor; };
+  }, []);
 
   function handleContinue() {
     if (isLeaving) return;
@@ -118,9 +166,19 @@ function WelcomeScreen({ onContinue }) {
           <div className="welcome-brand-column">
             <div className="brand-lockup" aria-label="MyBooks">
               <h1 className="brand-name" aria-label="MyBooks">
-                <svg className="brand-name__svg" viewBox="0 0 720 180" aria-hidden="true" focusable="false">
-                  <text className="brand-name__letters" x="360" y="132" textAnchor="middle">MyBooks</text>
-                </svg>
+                <TextType
+                  as="span"
+                  text="MyBooks"
+                  typingSpeed={135}
+                  initialDelay={450}
+                  loop={false}
+                  showCursor
+                  cursorStyle="bar"
+                  cursorGlide
+                  cursorColor="#93a7ff"
+                  typeEffect="fade"
+                  className="brand-name__typed"
+                />
               </h1>
               <svg className="brand-flourish" viewBox="0 0 320 22" aria-hidden="true">
                 <path d="M5 12 C73 4 106 20 158 12 S246 5 315 11" />
@@ -141,10 +199,7 @@ function WelcomeScreen({ onContinue }) {
 }
 
 async function getLibraryPage(path, token, onToken, signal) {
-  let response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    signal,
-  });
+  let response = await fetchLibraryPageRequest(path, token, signal);
 
   if (response.status === 401) {
     const refresh = window.localStorage.getItem("mybooks:refresh-token");
@@ -159,23 +214,35 @@ async function getLibraryPage(path, token, onToken, signal) {
     const refreshed = await refreshResponse.json();
     window.localStorage.setItem("mybooks:access-token", refreshed.access);
     onToken(refreshed.access);
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      headers: { Authorization: `Bearer ${refreshed.access}` },
-      signal,
-    });
+    response = await fetchLibraryPageRequest(path, refreshed.access, signal);
   }
 
-  const responseBody = await response.text();
-  let data;
-  try {
-    data = responseBody ? JSON.parse(responseBody) : {};
-  } catch {
-    const apiUrl = `${API_BASE_URL}${path.split("?")[0]}`;
-    throw new Error(
-      `A API respondeu com HTML em ${apiUrl}. Verifique se o servidor encaminha /api/ para o backend Django.`,
-    );
+  async function readResponseData(currentResponse) {
+    const responseBody = await currentResponse.text();
+    try {
+      return responseBody ? JSON.parse(responseBody) : {};
+    } catch {
+      const apiUrl = `${API_BASE_URL}${path.split("?")[0]}`;
+      throw new Error(
+        `A API respondeu com HTML em ${apiUrl}. Verifique se o servidor encaminha /api/ para o backend Django.`,
+      );
+    }
   }
-  if (!response.ok) throw new Error(data.detail || "Não foi possível carregar sua biblioteca.");
+
+  let data = await readResponseData(response);
+  if (response.status === 429 && path.split("?")[0].endsWith("/books/discover/")) {
+    const retryHeader = Number(response.headers.get("Retry-After")) || 0;
+    const retryMessage = String(data.detail || "").match(/(?:em|in)\s+(\d+(?:[.,]\d+)?)\s+segundo/i);
+    const retryFromMessage = retryMessage ? Number(retryMessage[1].replace(",", ".")) : 0;
+    await waitForRequestDelay(Math.max(1150, (Math.max(retryHeader, retryFromMessage) * 1000) + 150), signal);
+    response = await fetchLibraryPageRequest(path, token, signal);
+    data = await readResponseData(response);
+  }
+
+  if (!response.ok) {
+    if (typeof data.detail === "string") throw new Error(data.detail);
+    throw new Error("Não foi possível carregar sua biblioteca.");
+  }
   return data;
 }
 
@@ -187,23 +254,39 @@ function statusLabel(status) {
   }[status] || status;
 }
 
+function normalizeCatalogMatch(value) {
+  return (value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("pt-BR");
+}
+
 const SHELF_CAPACITY = 6;
 
 function groupIntoShelves(items, shelfSize = SHELF_CAPACITY) {
-  const highestShelf = Math.max(0, ...items.map((item) => Math.max(0, Number(item.shelf) || 0)));
-  const shelves = Array.from({ length: highestShelf + 1 }, () => []);
-  items.forEach((item) => shelves[Math.max(0, Number(item.shelf) || 0)]?.push(item));
-  shelves.forEach((shelf) => shelf.sort((left, right) => (Number(left.position) || 0) - (Number(right.position) || 0)));
-  if (shelves[shelves.length - 1]?.length >= shelfSize) shelves.push([]);
+  const orderedItems = [...items].sort((left, right) => (
+    (Number(left.shelf) || 0) - (Number(right.shelf) || 0)
+    || (Number(left.position) || 0) - (Number(right.position) || 0)
+  ));
+  const shelves = [];
+  for (let index = 0; index < orderedItems.length; index += shelfSize) {
+    const shelf = orderedItems.slice(index, index + shelfSize);
+    shelf.shelfIndex = shelves.length;
+    shelves.push(shelf);
+  }
+  if (shelves.at(-1)?.length >= shelfSize) {
+    const emptyShelf = [];
+    emptyShelf.shelfIndex = shelves.at(-1).shelfIndex + 1;
+    shelves.push(emptyShelf);
+  }
   return shelves;
 }
 
-function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated, isClosing }) {
+function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated, onEntryRemoved, isClosing }) {
   const [pagesRead, setPagesRead] = useState(entry.pages_read);
   const [status, setStatus] = useState(entry.status);
   const [review, setReview] = useState(null);
   const [rating, setRating] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [confirmRemoval, setConfirmRemoval] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [error, setError] = useState("");
   const [coverFailed, setCoverFailed] = useState(false);
   const dialogRef = useRef(null);
@@ -292,6 +375,26 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
     }
   }
 
+  async function startReadingNow() {
+    if (status !== "WANT_TO_READ" || saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await catalogRequest(`/library/${entry.id}/`, accessToken, onToken, {
+        method: "PATCH",
+        body: JSON.stringify({ pages_read: Number(pagesRead) || 0, status: "READING" }),
+      });
+      onEntryUpdated(updated);
+      setPagesRead(updated.pages_read);
+      setStatus(updated.status);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+
   async function saveRating(nextRating) {
     if (status !== "READ" || !totalPages || Number(pagesRead) !== totalPages) {
       setError("Conclua a leitura para avaliar esta obra.");
@@ -315,7 +418,21 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
     }
   }
 
-  return (
+  async function removeEntryFromLibrary() {
+    setRemoving(true);
+    setError("");
+    try {
+      await catalogRequest(`/library/${entry.id}/`, accessToken, onToken, { method: "DELETE" });
+      onEntryRemoved(entry.id);
+      onClose();
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  return createPortal((
     <div className={`book-dialog-backdrop${isClosing ? " is-closing" : ""}`} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <Dialog className="book-dialog__root">
         <DialogContent ref={dialogRef} className={"book-dialog" + (isClosing ? " is-closing" : "")} role="dialog" aria-modal="true" aria-labelledby="book-dialog-title">
@@ -359,6 +476,7 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
               </div>
               {totalPages > 0 && <strong>{progress}%</strong>}
             </div>
+            {status === "WANT_TO_READ" && <Button className="book-dialog__start-reading" type="button" size="sm" disabled={saving} onClick={startReadingNow}>{saving ? "iniciando…" : "Começar a ler agora"}</Button>}
             <form className="book-dialog__reading-form" onSubmit={saveReadingDetails}>
               <label>
                 Páginas lidas
@@ -388,6 +506,23 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
               </div>
               {!canRate && <small>Salve a leitura completa para avaliar esta obra.</small>}
             </div>
+            {!confirmRemoval ? (
+              <button className="book-dialog__remove-trigger" type="button" disabled={saving || removing} onClick={() => setConfirmRemoval(true)}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m4 3v7m4-7v7" /></svg>
+                Retirar da estante
+              </button>
+            ) : (
+              <section className="book-dialog__remove-confirmation" role="group" aria-labelledby="book-remove-title" aria-describedby="book-remove-description">
+                <div>
+                  <h4 id="book-remove-title">Retirar este livro da estante?</h4>
+                  <p id="book-remove-description">O status, as páginas lidas e a avaliação serão removidos. A obra continuará no catálogo e poderá ser adicionada novamente.</p>
+                </div>
+                <div className="book-dialog__remove-actions">
+                  <button className="book-dialog__remove-cancel" type="button" disabled={removing} autoFocus onClick={() => setConfirmRemoval(false)}>Cancelar</button>
+                  <button className="book-dialog__remove-confirm" type="button" disabled={removing || saving} onClick={removeEntryFromLibrary}>{removing ? "Retirando…" : "Confirmar remoção"}</button>
+                </div>
+              </section>
+            )}
             {error && <p className="book-dialog__error" role="alert">{error}</p>}
             </section>
             </div>
@@ -398,7 +533,7 @@ function BookDetailDialog({ entry, accessToken, onToken, onClose, onEntryUpdated
         </DialogContent>
       </Dialog>
     </div>
-  );
+  ), document.body);
 }
 
 async function catalogRequest(path, token, onToken, options = {}) {
@@ -514,11 +649,20 @@ function spineEmblem(title = "") {
   return "✦";
 }
 
+function shelfDisplayTitle(title = "") {
+  return title.split(/\s+(?:[-–—:]|\|)\s+/)[0].trim() || title;
+}
+
 function ReadingTimer({ accessToken, onToken, todayMinutes, onSessionStopped }) {
   const [activeSession, setActiveSession] = useState(null);
   const [goal, setGoal] = useState(30);
   const [goalInput, setGoalInput] = useState("30");
   const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [showSessionSetup, setShowSessionSetup] = useState(false);
+  const [sessionMinutes, setSessionMinutes] = useState("");
+  const [sessionPages, setSessionPages] = useState("");
+  const [chapterNotes, setChapterNotes] = useState("");
+  const [pageNotes, setPageNotes] = useState("");
   const [now, setNow] = useState(Date.now());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -558,11 +702,33 @@ function ReadingTimer({ accessToken, onToken, todayMinutes, onSessionStopped }) 
         await catalogRequest("/reading-sessions/stop/", accessToken, onToken, { method: "POST" });
         setActiveSession(null);
         onSessionStopped();
-      } else {
-        const data = await catalogRequest("/reading-sessions/start/", accessToken, onToken, { method: "POST" });
-        setActiveSession(data.active);
-        setNow(Date.now());
       }
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function startSession(event) {
+    event.preventDefault();
+    const targetMinutes = sessionMinutes === "" ? null : Number(sessionMinutes);
+    const targetPages = sessionPages === "" ? null : Number(sessionPages);
+    if ((targetMinutes !== null && (!Number.isInteger(targetMinutes) || targetMinutes < 1 || targetMinutes > 1440)) ||
+        (targetPages !== null && (!Number.isInteger(targetPages) || targetPages < 1 || targetPages > 10000))) {
+      setError("Confira as metas: tempo entre 1 e 1440 minutos e páginas entre 1 e 10000.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const data = await catalogRequest("/reading-sessions/start/", accessToken, onToken, {
+        method: "POST",
+        body: JSON.stringify({ target_minutes: targetMinutes, target_pages: targetPages, chapter_notes: chapterNotes.trim(), page_notes: pageNotes.trim() }),
+      });
+      setActiveSession(data.active);
+      setNow(Date.now());
+      setShowSessionSetup(false);
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -601,7 +767,7 @@ function ReadingTimer({ accessToken, onToken, todayMinutes, onSessionStopped }) 
           <div><h2 id="reading-timer-title">Sess&#227;o de leitura</h2><p>Meta di&#225;ria: {goal} minutos</p></div>
         </div>
         <div className={`reading-timer__clock${activeSession ? " is-running" : ""}`} aria-live="off">{formatDuration(elapsedSeconds)}</div>
-        <button className={`reading-timer__control${activeSession ? " is-stop" : ""}`} type="button" aria-label={activeSession ? "Encerrar sess\u00e3o de leitura" : "Iniciar sess\u00e3o de leitura"} title={activeSession ? "Encerrar sess\u00e3o" : "Iniciar leitura"} disabled={loading || saving} onClick={toggleSession}>
+        <button className={`reading-timer__control${activeSession ? " is-stop" : ""}`} type="button" aria-label={activeSession ? "Encerrar sess\u00e3o de leitura" : "Iniciar sess\u00e3o de leitura"} title={activeSession ? "Encerrar sess\u00e3o" : "Iniciar leitura"} disabled={loading || saving} onClick={activeSession ? toggleSession : () => setShowSessionSetup(true)}>
           <span aria-hidden="true">{saving ? "…" : activeSession ? "■" : "▶"}</span>
         </button>
         <div className="reading-timer__goal-panel">
@@ -611,12 +777,33 @@ function ReadingTimer({ accessToken, onToken, todayMinutes, onSessionStopped }) 
           <button className="reading-timer__edit-goal" type="button" aria-label={"Editar meta di\u00e1ria"} aria-expanded={isEditingGoal} onClick={() => setIsEditingGoal((value) => !value)}>&#9998;</button>
         </div>
       </div>
+      {activeSession && (activeSession.target_minutes || activeSession.target_pages || activeSession.chapter_notes || activeSession.page_notes) && <details className="reading-timer__session-focus">
+        <summary>Metas e anotações desta sessão</summary>
+        {(activeSession.target_minutes || activeSession.target_pages) && <p className="reading-timer__session-targets">{activeSession.target_minutes && <span>Tempo: {activeSession.target_minutes} min</span>}{activeSession.target_pages && <span>Páginas: {activeSession.target_pages}</span>}</p>}
+        {activeSession.chapter_notes && <p><strong>Capítulos:</strong> {activeSession.chapter_notes}</p>}
+        {activeSession.page_notes && <p><strong>Páginas:</strong> {activeSession.page_notes}</p>}
+      </details>}
       {isEditingGoal && <form className="reading-timer__goal-form" onSubmit={saveGoal}>
         <label htmlFor="daily-reading-goal">Minha meta di&#225;ria</label>
         <input id="daily-reading-goal" type="number" min="1" max="1440" value={goalInput} onChange={(event) => setGoalInput(event.target.value)} />
         <span>minutos</span>
         <button type="submit" disabled={saving || loading}>{saving ? "salvando..." : "salvar meta"}</button>
       </form>}
+      {showSessionSetup && <div className="session-setup-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setShowSessionSetup(false); }}>
+        <form className="session-setup-modal" role="dialog" aria-modal="true" aria-labelledby="session-setup-title" onSubmit={startSession} onKeyDown={(event) => { if (event.key === "Escape" && !saving) setShowSessionSetup(false); }}>
+          <p className="library-kicker">prepare seu momento</p>
+          <h2 id="session-setup-title">Metas desta leitura</h2>
+          <p className="session-setup-modal__intro">Defina um foco para a sessão. Todos os campos são opcionais.</p>
+          <div className="session-setup-modal__goals">
+            <label>Meta de tempo <span><input type="number" min="1" max="1440" placeholder={String(goal)} value={sessionMinutes} onChange={(event) => setSessionMinutes(event.target.value)} /> min</span></label>
+            <label>Meta de páginas <span><input type="number" min="1" max="10000" placeholder="Ex.: 20" value={sessionPages} onChange={(event) => setSessionPages(event.target.value)} /> páginas</span></label>
+          </div>
+          <label className="session-setup-modal__note">Anotações de capítulos<textarea rows="3" maxLength="5000" placeholder="Capítulo e ideia que deseja guardar…" value={chapterNotes} onChange={(event) => setChapterNotes(event.target.value)} /></label>
+          <label className="session-setup-modal__note">Anotações de páginas<textarea rows="3" maxLength="5000" placeholder="Número da página e sua anotação…" value={pageNotes} onChange={(event) => setPageNotes(event.target.value)} /></label>
+          {error && <p className="book-dialog__error" role="alert">{error}</p>}
+          <div className="session-setup-modal__actions"><button type="button" onClick={() => setShowSessionSetup(false)} disabled={saving}>Agora não</button><button type="submit" disabled={saving}>{saving ? "Iniciando…" : "Salvar e iniciar"}</button></div>
+        </form>
+      </div>}
       {error && <p className="book-dialog__error" role="alert">{error}</p>}
     </section>
   );
@@ -624,7 +811,11 @@ function ReadingTimer({ accessToken, onToken, todayMinutes, onSessionStopped }) 
 function ReadingProgressView({ accessToken, onToken, onGoToLibrary }) {
   const [stats, setStats] = useState(null);
   const [currentEntry, setCurrentEntry] = useState(null);
+  const [readingTasks, setReadingTasks] = useState([]);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [taskSaving, setTaskSaving] = useState(false);
   const [chartPeriod, setChartPeriod] = useState("daily");
+  const [showEvolution, setShowEvolution] = useState(false);
   const [refreshCount, setRefreshCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -635,8 +826,9 @@ function ReadingProgressView({ accessToken, onToken, onGoToLibrary }) {
     Promise.all([
       catalogRequest("/reading-stats/", accessToken, onToken),
       catalogRequest("/library/?status=READING&page=1", accessToken, onToken),
+      catalogRequest("/reading-tasks/", accessToken, onToken),
     ])
-      .then(([data, libraryData]) => { if (active) { setStats(data); setCurrentEntry(libraryData.results?.[0] || null); } })
+      .then(([data, libraryData, taskData]) => { if (active) { setStats(data); setCurrentEntry(libraryData.results?.[0] || null); setReadingTasks(Array.isArray(taskData) ? taskData : taskData.results || []); } })
       .catch((requestError) => { if (active) setError(requestError.message); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -653,19 +845,67 @@ function ReadingProgressView({ accessToken, onToken, onGoToLibrary }) {
   const currentPercent = currentTotal ? Math.min(100, Math.round(currentPages / currentTotal * 100)) : 0;
   const chartItems = chartPeriod === "daily" ? stats?.daily || [] : chartPeriod === "weekly" ? stats?.weekly || [] : monthly;
 
+  async function addReadingTask(event) {
+    event.preventDefault();
+    const title = newTaskTitle.trim();
+    if (!title || taskSaving) return;
+    setTaskSaving(true);
+    setError("");
+    try {
+      const task = await catalogRequest("/reading-tasks/", accessToken, onToken, {
+        method: "POST",
+        body: JSON.stringify({ title }),
+      });
+      setReadingTasks((current) => [task, ...current]);
+      setNewTaskTitle("");
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setTaskSaving(false);
+    }
+  }
+
+  async function toggleReadingTask(task) {
+    setTaskSaving(true);
+    try {
+      const updated = await catalogRequest(`/reading-tasks/${task.id}/`, accessToken, onToken, {
+        method: "PATCH",
+        body: JSON.stringify({ completed: !task.completed }),
+      });
+      setReadingTasks((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setTaskSaving(false);
+    }
+  }
+
+  async function deleteReadingTask(task) {
+    setTaskSaving(true);
+    try {
+      await catalogRequest(`/reading-tasks/${task.id}/`, accessToken, onToken, { method: "DELETE" });
+      setReadingTasks((current) => current.filter((item) => item.id !== task.id));
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setTaskSaving(false);
+    }
+  }
+
   return (
-    <section id="library-content" className="reading-progress-view explore-view" aria-labelledby="reading-progress-title" aria-busy={loading}>
+    <section id="library-content" className={`reading-progress-view explore-view${showEvolution ? " reading-progress-view--evolution" : ""}`} aria-labelledby="reading-progress-title" aria-busy={loading}>
       <div className="explore-heading progress-heading">
         <div>
-          <p className="library-kicker">cada p&#225;gina conta</p>
-          <h1 id="reading-progress-title">Sua jornada liter&#225;ria.</h1>
-          <p className="explore-intro">Acompanhe sua evolu&#231;&#227;o, mantenha o ritmo e celebre suas conquistas.</p>
+          <p className="library-kicker">{showEvolution ? "seu percurso literário" : "cada página conta"}</p>
+          <h1 id="reading-progress-title">{showEvolution ? "Evolução da leitura." : "Seu progresso hoje."}</h1>
+          <p className="explore-intro">{showEvolution ? "Veja como seu ritmo de leitura cresce ao longo do tempo." : "Acompanhe sua meta diária, mantenha o ritmo e celebre suas conquistas."}</p>
         </div>
+        {showEvolution ? <button type="button" className="progress-view-link progress-view-link--back" onClick={() => setShowEvolution(false)}>← Voltar ao progresso</button> : <button type="button" className="progress-view-link progress-view-link--top" onClick={() => setShowEvolution(true)}>Ver evolução <span aria-hidden="true">↗</span></button>}
       </div>
       {error && <p className="library-error" role="alert">{error}</p>}
       {loading ? <p className="library-feedback" role="status">reunindo suas leituras&#8230;</p> : stats ? (
         <>
-          <div className="progress-top-grid">
+          {!showEvolution && <div className="progress-top-grid">
             <section className="progress-current-card" aria-labelledby="progress-current-title">
               <h2 id="progress-current-title"><span aria-hidden="true">▤</span> Leitura atual</h2>
               {currentEntry ? <>
@@ -677,7 +917,25 @@ function ReadingProgressView({ accessToken, onToken, onGoToLibrary }) {
               </> : <div className="progress-current-card__empty"><p>Nenhum livro em andamento.</p><button type="button" onClick={onGoToLibrary}>Escolher uma leitura</button></div>}
             </section>
             <ReadingTimer accessToken={accessToken} onToken={onToken} todayMinutes={today.minutes || 0} onSessionStopped={() => setRefreshCount((count) => count + 1)} />
-          </div>
+          </div>}
+
+          {!showEvolution && <section className="progress-tasks" aria-labelledby="progress-tasks-title">
+            <div className="progress-tasks__heading">
+              <div><p className="library-kicker">metas que você definiu</p><h2 id="progress-tasks-title">Tarefas de leitura</h2><p>Transforme seu objetivo de hoje em passos que você pode concluir.</p></div>
+              <span className="progress-tasks__count">{readingTasks.filter((task) => task.completed).length} de {readingTasks.length} concluídas</span>
+            </div>
+            <form className="progress-tasks__form" onSubmit={addReadingTask}>
+              <label className="sr-only" htmlFor="reading-task-title">Nova tarefa de leitura</label>
+              <input id="reading-task-title" maxLength="160" value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} placeholder="Ex.: Ler 10 páginas hoje" />
+              <button type="submit" disabled={taskSaving || !newTaskTitle.trim()}>{taskSaving ? "Salvando…" : "Adicionar meta"}</button>
+            </form>
+            {readingTasks.length ? <ul className="progress-tasks__list">
+              {readingTasks.map((task) => <li className={task.completed ? "is-complete" : ""} key={task.id}>
+                <label><input type="checkbox" checked={task.completed} disabled={taskSaving} onChange={() => toggleReadingTask(task)} /><span>{task.title}</span></label>
+                <button type="button" aria-label={`Excluir tarefa: ${task.title}`} disabled={taskSaving} onClick={() => deleteReadingTask(task)}>×</button>
+              </li>)}
+            </ul> : <p className="progress-tasks__empty">Adicione uma meta simples para começar. Você poderá marcá-la como concluída quando terminar.</p>}
+          </section>}
 
           <section className="progress-metric-row" aria-label="Resumo da leitura">
             <article><span aria-hidden="true">▤</span><strong>{today.pages || 0}</strong><small>P&#225;ginas hoje</small></article>
@@ -686,14 +944,13 @@ function ReadingProgressView({ accessToken, onToken, onGoToLibrary }) {
             <article><span aria-hidden="true">♜</span><strong>{sixMonthBooks}</strong><small>Livros conclu&#237;dos &#183; 6 meses</small></article>
           </section>
 
-          <div className="progress-lower-grid">
-            <section className="progress-evolution-card" aria-labelledby="progress-evolution-title">
+          {showEvolution ? <section className="progress-evolution-card progress-evolution-card--full" aria-labelledby="progress-evolution-title">
               <div className="progress-section-heading"><h2 id="progress-evolution-title">Evolu&#231;&#227;o de leitura</h2><div className="progress-period-switch" aria-label="Per&#237;odo do gr&#225;fico">
                 {[{ id: "daily", label: "7 dias" }, { id: "weekly", label: "8 semanas" }, { id: "monthly", label: "6 meses" }].map((period) => <button type="button" key={period.id} className={chartPeriod === period.id ? "is-active" : ""} aria-pressed={chartPeriod === period.id} onClick={() => setChartPeriod(period.id)}>{period.label}</button>)}
               </div></div>
               <ReadingChart title="P&#225;ginas lidas" description={chartPeriod === "daily" ? "\u00daltimos 7 dias" : chartPeriod === "weekly" ? "\u00daltimas 8 semanas" : "\u00daltimos 6 meses"} items={chartItems} />
-            </section>
-            <section className="progress-achievements" aria-labelledby="progress-achievements-title">
+            </section> : null}
+          <section className="progress-achievements" aria-labelledby="progress-achievements-title">
               <h2 id="progress-achievements-title"><span aria-hidden="true">♜</span> Conquistas liter&#225;rias</h2>
               <p>Seu percurso nos &#250;ltimos seis meses.</p>
               {[{ label: "100 p\u00e1ginas lidas", value: sixMonthPages, target: 100, icon: "▤" }, { label: "3 livros conclu\u00eddos", value: sixMonthBooks, target: 3, icon: "▱" }, { label: "600 minutos de leitura", value: sixMonthMinutes, target: 600, icon: "◷" }].map((achievement) => {
@@ -701,10 +958,10 @@ function ReadingProgressView({ accessToken, onToken, onGoToLibrary }) {
                 return <div className={`progress-achievement${progress >= 100 ? " is-complete" : ""}`} key={achievement.label}><span aria-hidden="true">{progress >= 100 ? "✓" : achievement.icon}</span><div><strong>{achievement.label}</strong><small>{achievement.value} / {achievement.target}</small><div className="progress-achievement__track"><i style={{ width: `${progress}%` }} /></div></div></div>;
               })}
             </section>
-          </div>
+          {!showEvolution && <button type="button" className="progress-evolution-cta" onClick={() => setShowEvolution(true)}>Ver evolução da leitura <span aria-hidden="true">→</span></button>}
         </>
       ) : <p className="library-feedback">N&#227;o foi poss&#237;vel carregar seu progresso.</p>}
-      <p className="reading-progress-note">Os gr&#225;ficos contam avan&#231;os registrados a partir da ativa&#231;&#227;o deste hist&#243;rico.</p>
+      {showEvolution && <p className="reading-progress-note">Os gr&#225;ficos contam avan&#231;os registrados a partir da ativa&#231;&#227;o deste hist&#243;rico.</p>}
     </section>  );
 }
 
@@ -937,7 +1194,41 @@ function SharedLibrariesView({ accessToken, onToken, username, onUnreadChange })
   );
 }
 
-function CatalogExplorer({ accessToken, onToken }) {
+const FEATURED_GENRES = [
+  { name: "Fantasia", art: "castle" },
+  { name: "Ficção Científica", art: "planet" },
+  { name: "Mistério", art: "lantern" },
+  { name: "Biografia", art: "bust" },
+  { name: "Romance", art: "flower" },
+];
+
+const MORE_GENRES = [
+  { name: "Aventura", art: "mountains" },
+  { name: "Clássicos", art: "open-book" },
+  { name: "Drama", art: "masks" },
+  { name: "História", art: "column" },
+  { name: "Poesia", art: "quill" },
+];
+
+function GenreArtwork({ type }) {
+  const shared = { fill: "none", stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: 2 };
+  const artwork = {
+    castle: <><path d="M8 42V25l7-6 7 6v17M22 42V16l8-8 8 8v26M38 42V24l7-7 7 7v18M12 42V32h6v10M29 42V29h6v13M43 42V31h4v11" /><path d="M15 19v-6M30 8V3M45 17v-6M4 42h52" /></>,
+    planet: <><circle cx="32" cy="25" r="12" /><ellipse cx="32" cy="25" rx="27" ry="9" transform="rotate(-18 32 25)" /><path d="M13 31c5 5 15 7 25 4" /></>,
+    lantern: <><path d="M31 4v5M24 10h14l4 8H20zM22 19h18l-2 17H24zM26 36v5h10v-5M31 41v7M24 48h14M27 15h8" /><path d="M31 23v8M27 27h8" /></>,
+    bust: <><circle cx="32" cy="15" r="8" /><path d="M25 15c2-2 4-5 5-8M24 26l-7 7v14h30V33l-7-7M24 28l8 7 8-7M27 34l5 13 5-13" /></>,
+    flower: <><path d="M32 27v22M32 39c-6-7-12-4-12 0s7 5 12 0ZM32 44c6-7 12-4 12 0s-7 5-12 0Z" /><circle cx="32" cy="13" r="5" /><circle cx="22" cy="18" r="5" /><circle cx="42" cy="18" r="5" /><circle cx="25" cy="28" r="5" /><circle cx="39" cy="28" r="5" /><circle cx="32" cy="21" r="4" /></>,
+    mountains: <><path d="m5 44 17-25 10 14 7-10 20 21H5Z" /><path d="m16 44 6-9 6 9m5-9 5-7 7 10M42 8v13m0-13 9 4-9 4M10 49h45" /></>,
+    "open-book": <><path d="M5 15c9-3 18-1 27 5v26c-9-6-18-8-27-5V15Zm54 0c-9-3-18-1-27 5v26c9-6 18-8 27-5V15Z" /><path d="M11 22c5-1 10 0 15 3M11 29c5-1 10 0 15 3m27-10c-5-1-10 0-15 3m15 4c-5-1-10 0-15 3" /></>,
+    masks: <><path d="M8 13c8-5 18-5 24 0v13c0 12-8 20-16 20S8 38 8 26V13Zm24 0c8-5 18-5 24 0v13c0 12-8 20-16 20-4 0-7-2-10-5" /><path d="M15 25h5m-5 0 2 4m18-4h5m-5 0-2 4M14 36c3 3 7 3 10 0m15 0c3 3 7 3 10 0" /></>,
+    column: <><path d="M9 16h46L32 7 9 16Zm4 3h38m-34 0v25m9-25v25m12-25v25m9-25v25M9 47h46m-50 5h54" /><path d="M27 28h10m-10 6h10" /></>,
+    quill: <><path d="M15 46c4-16 12-29 32-39 2 20-8 34-25 39-4 1-7 1-7 0Z" /><path d="m15 47 23-27m-13 12 10 1m-4-9 9 1M10 51h30" /><path d="M46 7c3 2 5 5 6 9" /></>,
+  };
+
+  return <svg className={`explore-genre-card__art explore-genre-card__art--${type}`} viewBox="0 0 64 56" aria-hidden="true" {...shared}>{artwork[type]}</svg>;
+}
+
+function CatalogExplorer({ accessToken, onToken, libraryEntries, onEntryAdded, onStartReading }) {
   const [search, setSearch] = useState("");
   const [genre, setGenre] = useState("");
   const [submittedSearch, setSubmittedSearch] = useState("");
@@ -945,17 +1236,18 @@ function CatalogExplorer({ accessToken, onToken }) {
   const [results, setResults] = useState([]);
   const [page, setPage] = useState(1);
   const [totalBooks, setTotalBooks] = useState(0);
+  const [rankingBasis, setRankingBasis] = useState("");
   const [hasNext, setHasNext] = useState(false);
   const [hasPrevious, setHasPrevious] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [categories, setCategories] = useState({});
   const [addingBook, setAddingBook] = useState(null);
   const [addedBooks, setAddedBooks] = useState({});
   const [feedback, setFeedback] = useState({});
   const [similarBooks, setSimilarBooks] = useState([]);
   const [recommendationGenre, setRecommendationGenre] = useState("");
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [showAllGenres, setShowAllGenres] = useState(false);
 
   useEffect(() => {
     const genreQuery = submittedGenre || results.find((book) => book.genre?.trim())?.genre?.trim() || "";
@@ -993,6 +1285,7 @@ function CatalogExplorer({ accessToken, onToken }) {
     const params = new URLSearchParams({ page: String(page) });
     if (submittedSearch) params.set("search", submittedSearch);
     if (submittedGenre) params.set("genre", submittedGenre);
+    if (submittedGenre) params.set("sort", "popular");
     setLoading(true);
     setError("");
     getLibraryPage(`/books/discover/?${params.toString()}`, accessToken, onToken, controller.signal)
@@ -1001,6 +1294,7 @@ function CatalogExplorer({ accessToken, onToken }) {
         setTotalBooks(data.count || 0);
         setHasNext(Boolean(data.next));
         setHasPrevious(Boolean(data.previous));
+        setRankingBasis(data.ranking_basis || "");
         setError(data.warning || "");
       })
       .catch((requestError) => {
@@ -1036,21 +1330,8 @@ function CatalogExplorer({ accessToken, onToken }) {
     setSubmittedGenre(type === "genre" ? nextValue : "");
   }
 
-  function clearSearch() {
-    setSearch("");
-    setGenre("");
-    setSubmittedSearch("");
-    setSubmittedGenre("");
-    setResults([]);
-    setTotalBooks(0);
-    setHasNext(false);
-    setHasPrevious(false);
-    setError("");
-    setPage(1);
-  }
-
   async function addBook(book, requestedCategory) {
-    const category = requestedCategory || categories[book.id] || "WANT_TO_READ";
+    const category = requestedCategory || "WANT_TO_READ";
     if (category === "READ" && !book.total_pages) {
       setFeedback((current) => ({ ...current, [book.id]: "Informe o total de páginas antes de marcar esta obra como lida." }));
       return;
@@ -1064,7 +1345,7 @@ function CatalogExplorer({ accessToken, onToken }) {
           body: JSON.stringify(externalBookImportPayload(book)),
         })
         : book;
-      await catalogRequest("/library/", accessToken, onToken, {
+      const createdEntry = await catalogRequest("/library/", accessToken, onToken, {
         method: "POST",
         body: JSON.stringify({
           book_id: catalogBook.id,
@@ -1074,11 +1355,33 @@ function CatalogExplorer({ accessToken, onToken }) {
       });
       setAddedBooks((current) => ({ ...current, [book.id]: true }));
       setFeedback((current) => ({ ...current, [book.id]: "Obra adicionada à sua biblioteca." }));
+      onEntryAdded(createdEntry);
+      if (category === "READING") onStartReading(createdEntry);
     } catch (requestError) {
       const message = String(requestError.message);
       if (/já est[aá] na sua biblioteca/i.test(message)) {
         setAddedBooks((current) => ({ ...current, [book.id]: true }));
         setFeedback((current) => ({ ...current, [book.id]: "Esta obra já está na sua biblioteca." }));
+        if (category === "READING") {
+          try {
+            const data = await getLibraryPage(`/library/?search=${encodeURIComponent(book.title)}&page=1`, accessToken, onToken);
+            const existingEntry = (data.results || []).find((entry) => (
+              normalizeCatalogMatch(entry.book.title) === normalizeCatalogMatch(book.title)
+              && normalizeCatalogMatch(entry.book.author) === normalizeCatalogMatch(book.author)
+            ));
+            if (existingEntry) {
+              const readingEntry = existingEntry.status === "WANT_TO_READ"
+                ? await catalogRequest(`/library/${existingEntry.id}/`, accessToken, onToken, {
+                  method: "PATCH",
+                  body: JSON.stringify({ pages_read: existingEntry.pages_read || 0, status: "READING" }),
+                })
+                : existingEntry;
+              onStartReading(readingEntry);
+            }
+          } catch (lookupError) {
+            setFeedback((current) => ({ ...current, [book.id]: lookupError.message }));
+          }
+        }
       } else {
         setFeedback((current) => ({ ...current, [book.id]: message }));
       }
@@ -1087,9 +1390,57 @@ function CatalogExplorer({ accessToken, onToken }) {
     }
   }
 
+  async function startReading(book) {
+    const existingEntry = libraryEntries.find((entry) => entry.book.id === book.id || (
+      book.is_external
+      && normalizeCatalogMatch(entry.book.title) === normalizeCatalogMatch(book.title)
+      && normalizeCatalogMatch(entry.book.author) === normalizeCatalogMatch(book.author)
+    ));
+    if (!existingEntry) {
+      await addBook(book, "READING");
+      return;
+    }
+    if (existingEntry.status === "READING") {
+      onStartReading(existingEntry);
+      return;
+    }
+    if (existingEntry.status !== "WANT_TO_READ") return;
+    setAddingBook(book.id);
+    setFeedback((current) => ({ ...current, [book.id]: "" }));
+    try {
+      const updatedEntry = await catalogRequest(`/library/${existingEntry.id}/`, accessToken, onToken, {
+        method: "PATCH",
+        body: JSON.stringify({ pages_read: existingEntry.pages_read || 0, status: "READING" }),
+      });
+      onStartReading(updatedEntry);
+    } catch (requestError) {
+      setFeedback((current) => ({ ...current, [book.id]: requestError.message }));
+    } finally {
+      setAddingBook(null);
+    }
+  }
+
   return (
     <section id="library-content" className="explore-view" aria-labelledby="explore-title" aria-busy={loading}>
       <div className="explore-dashboard">
+        <section className="explore-genres" aria-labelledby="explore-genres-title">
+          <div className="explore-genres__heading">
+            <h2 id="explore-genres-title">Explore por gênero</h2>
+            <button className="explore-genres__all" type="button" aria-expanded={showAllGenres} onClick={() => setShowAllGenres((visible) => !visible)}>
+              {showAllGenres ? "Mostrar principais" : "Ver todos os gêneros"}<span aria-hidden="true">→</span>
+            </button>
+          </div>
+          <div className="explore-genres__grid">
+            {FEATURED_GENRES.map((item) => (
+              <button className={`explore-genre-card explore-genre-card--${item.art}`} key={item.name} type="button" onClick={() => searchForSuggestion(item.name, "genre")}>
+                <span>{item.name}</span><GenreArtwork type={item.art} />
+              </button>
+            ))}
+            {showAllGenres && MORE_GENRES.map((item) => (
+              <button className={`explore-genre-card explore-genre-card--${item.art}`} key={item.name} type="button" onClick={() => searchForSuggestion(item.name, "genre")}><span>{item.name}</span><GenreArtwork type={item.art} /></button>
+            ))}
+          </div>
+        </section>
         <div className="explore-dashboard__main">
       <div className="explore-heading explore-heading--primary">
         <div>
@@ -1109,7 +1460,6 @@ function CatalogExplorer({ accessToken, onToken }) {
           <input value={genre} onChange={(event) => setGenre(event.target.value)} placeholder="Ex.: fantasia" />
         </label>
         <button className="library-primary-button" type="submit" disabled={loading}>{loading ? "buscando…" : "buscar obras"}</button>
-        <button className="explore-search__clear" type="button" onClick={clearSearch} disabled={!search && !genre && !submittedSearch && !submittedGenre}>Limpar filtros</button>
       </form>
 
       <div className="explore-popular-searches" aria-label="Buscas populares">
@@ -1124,6 +1474,7 @@ function CatalogExplorer({ accessToken, onToken }) {
         <h2>Resultados do catálogo</h2>
         {(submittedSearch || submittedGenre) && <span>{totalBooks} {totalBooks === 1 ? "obra encontrada" : "obras encontradas"}</span>}
       </div>
+      {submittedGenre && <p className="catalog-popularity-note">Obras populares na web em {submittedGenre}{rankingBasis ? ` · ordenadas por ${rankingBasis}` : " · popularidade indisponível no momento"}. A ordem usa dados acumulados dos catálogos, não tendências em tempo real.</p>}
       {error && <p className="library-error explore-error" role="alert">{error}</p>}
       {loading ? (
         <div className="explore-state" role="status"><span className="loading-mark" aria-hidden="true" />Consultando o catálogo…</div>
@@ -1153,22 +1504,25 @@ function CatalogExplorer({ accessToken, onToken }) {
                   <div className="catalog-card__facts">
                     {book.total_pages ? <span>{book.total_pages} páginas</span> : <span>páginas não informadas</span>}
                     {(book.publication_year || book.publication_date?.slice(0, 4)) && <span>{book.publication_year || book.publication_date.slice(0, 4)}</span>}
+                    {book.popularity_count > 0 && <span>{new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(book.popularity_count)} {book.popularity_metric}</span>}
                   <p className="catalog-card__source">Fonte: {book.source || "Catálogo MyBooks"}{book.external_url && <> · <a href={book.external_url} target="_blank" rel="noreferrer">ver registro</a></>}</p>
                   </div>
                   <p className="catalog-card__synopsis">{book.synopsis || "Ainda não há um resumo cadastrado para esta obra."}</p>
-                  <div className="catalog-card__actions">
-                    <label>
-                      <span>Adicionar como</span>
-                      <select value={categories[book.id] || "WANT_TO_READ"} disabled={Boolean(addedBooks[book.id])} onChange={(event) => setCategories((current) => ({ ...current, [book.id]: event.target.value }))}>
-                        <option value="WANT_TO_READ">Desejos</option>
-                        <option value="READING">Lendo</option>
-                        <option value="READ">Já lidos</option>
-                      </select>
-                    </label>
-                    <button className={`catalog-add-button${addedBooks[book.id] ? " is-added" : ""}`} type="button" disabled={Boolean(addingBook) || Boolean(addedBooks[book.id])} onClick={() => addBook(book)}>
-                      {addingBook === book.id ? "adicionando…" : addedBooks[book.id] ? "adicionado ✓" : "+ adicionar"}
-                    </button>
-                  </div>
+                  {(() => {
+                    const libraryEntry = libraryEntries.find((entry) => entry.book.id === book.id);
+                    const isFinished = libraryEntry?.status === "READ";
+                    const isReading = libraryEntry?.status === "READING";
+                    const isWishlisted = libraryEntry?.status === "WANT_TO_READ";
+                    const isBusy = addingBook === book.id;
+                    return <div className="catalog-card__actions">
+                      <button className="catalog-add-button catalog-add-button--start" type="button" disabled={Boolean(addingBook) || isFinished} onClick={() => startReading(book)}>
+                        {isBusy ? "iniciando…" : isFinished ? "leitura concluída" : isReading ? "continuar lendo" : "começar a ler"}
+                      </button>
+                      <button className="catalog-wishlist-button" type="button" disabled={Boolean(addingBook) || isFinished || isReading || isWishlisted || (Boolean(addedBooks[book.id]) && !libraryEntry)} onClick={() => addBook(book, "WANT_TO_READ")}>
+                        {isWishlisted || (addedBooks[book.id] && !libraryEntry) ? "salvo nos desejos ✓" : "+ salvar nos desejos"}
+                      </button>
+                    </div>;
+                  })()}
                   {feedback[book.id] && <p className={`catalog-feedback${addedBooks[book.id] ? " is-success" : ""}`} role="status">{feedback[book.id]}</p>}
                 </div>
               </article>
@@ -1456,9 +1810,10 @@ function LibraryLanding({ onReturn }) {
     if (targetShelf === null || targetShelf < 0 || targetPosition === null) return false;
     const currentShelf = Math.max(0, Number(entry.shelf) || 0);
     const shelves = groupIntoShelves(entries);
-    if (targetShelf >= shelves.length) return false;
-    const targetEntries = shelves[targetShelf].filter((item) => item.id !== entry.id);
-    if (targetEntries.length >= SHELF_CAPACITY || targetPosition > targetEntries.length) return false;
+    const targetShelfEntries = shelves.find((shelf) => shelf.shelfIndex === targetShelf);
+    if (!targetShelfEntries) return false;
+    const targetEntries = targetShelfEntries.filter((item) => item.id !== entry.id);
+    if (targetPosition > targetEntries.length) return false;
     return targetShelf !== currentShelf || targetPosition !== Number(entry.position || 0);
   }
 
@@ -1568,7 +1923,8 @@ function LibraryLanding({ onReturn }) {
         <a className="library-wordmark" href="#inicio" onClick={(event) => { event.preventDefault(); onReturn(); }}>
           MyBooks<span aria-hidden="true">.</span>
         </a>
-        {accessToken && <nav className="library-navigation" aria-label="Navegação principal">
+        {accessToken && <nav className="library-navigation" aria-label="Navegação principal" style={{ "--active-module-index": { library: 0, explore: 1, progress: 2, shared: 3 }[activeView] ?? 0 }}>
+          <span className="library-navigation__indicator" aria-hidden="true" />
           <button aria-label="Minha biblioteca" aria-current={activeView === "library" ? "page" : undefined} className={activeView === "library" ? "is-active" : ""} type="button" onClick={() => setActiveView("library")}><span aria-hidden="true" className="library-navigation__icon"><svg viewBox="0 0 24 24"><path d="M4.5 5.5c2.6-.8 5-.3 7.5 1.2v12c-2.5-1.5-4.9-2-7.5-1.2zM19.5 5.5c-2.6-.8-5-.3-7.5 1.2v12c2.5-1.5 4.9-2 7.5-1.2z" /><path d="M12 6.7v12" /></svg></span><span className="library-navigation__text--long">Minha biblioteca</span><span className="library-navigation__text--short" aria-hidden="true">Biblioteca</span></button>
           <button aria-label="Explorar obras" aria-current={activeView === "explore" ? "page" : undefined} className={activeView === "explore" ? "is-active" : ""} type="button" onClick={() => setActiveView("explore")}><span aria-hidden="true" className="library-navigation__icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="m14.8 9.2-2 4.1-3.6 1.5 1.7-3.8z" /></svg></span><span className="library-navigation__text--long">Explorar obras</span><span className="library-navigation__text--short" aria-hidden="true">Explorar</span></button>
           <button aria-label="Progresso" aria-current={activeView === "progress" ? "page" : undefined} className={activeView === "progress" ? "is-active" : ""} type="button" onClick={() => setActiveView("progress")}><span aria-hidden="true" className="library-navigation__icon"><svg viewBox="0 0 24 24"><path d="M4 19h3V11H4zM10.5 19h3V7h-3zM17 19h3V4h-3z" /></svg></span><span>Progresso</span></button>
@@ -1661,7 +2017,17 @@ function LibraryLanding({ onReturn }) {
           </Card>
         </div>
       ) : activeView === "explore" ? (
-        <CatalogExplorer accessToken={accessToken} onToken={setAccessToken} />
+        <CatalogExplorer accessToken={accessToken} onToken={setAccessToken} libraryEntries={entries} onEntryAdded={(entry) => {
+          setEntries((current) => [entry, ...current.filter((item) => item.id !== entry.id)]);
+          setTotalEntries((current) => current + 1);
+          setLibraryRevision((revision) => revision + 1);
+        }} onStartReading={(entry) => {
+          setSearch(""); setGenre(""); setStatus("");
+          setSubmittedSearch(""); setSubmittedGenre(""); setSubmittedStatus(""); setPage(1);
+          setEntries((current) => [entry, ...current.filter((item) => item.id !== entry.id)]);
+          setActiveView("library");
+          openBook(entry);
+        }} />
       ) : activeView === "progress" ? (
         <ReadingProgressView accessToken={accessToken} onToken={setAccessToken} onGoToLibrary={() => setActiveView("library")} />
       ) : activeView === "shared" ? (
@@ -1672,7 +2038,6 @@ function LibraryLanding({ onReturn }) {
             <div className="library-dashboard__main">
               <div className="personal-library__heading">
                 <div>
-                  <p className="library-kicker">sua coleção pessoal</p>
                   <h1 id="library-title">Minha Biblioteca</h1>
                   <p className="library-dashboard__subtitle">Suas histórias, organizadas do seu jeito.</p>
                 </div>
@@ -1738,14 +2103,15 @@ function LibraryLanding({ onReturn }) {
           ) : entries.length ? (
             <div className="bookshelf" aria-label="Estante da sua biblioteca">
               <span className="bookshelf-woodgrain" aria-hidden="true" />
-              {groupIntoShelves(entries).map((shelf, shelfIndex) => {
+              {groupIntoShelves(entries).map((shelf, displayShelfIndex) => {
+                const shelfIndex = shelf.shelfIndex;
                 const displayCount = shelf.filter((entry) => entry.id !== draggedBookId).length;
                 let displayIndex = 0;
                 return (
                 <section
-                  className={`bookshelf-row${shelfIndex === 0 ? " bookshelf-row--display" : ""}${dragOverShelf === shelfIndex ? " is-drop-target" : ""}${displayCount === 0 ? " is-empty-destination" : ""}`}
+                  className={`bookshelf-row${displayShelfIndex === 0 ? " bookshelf-row--display" : ""}${dragOverShelf === shelfIndex ? " is-drop-target" : ""}${displayCount === 0 ? " is-empty-destination" : ""}`}
                   key={`shelf-${shelfIndex}`}
-                  aria-label={`Prateleira ${shelfIndex + 1}`}
+                  aria-label={`Prateleira ${displayShelfIndex + 1}`}
                   data-shelf-index={shelfIndex}
                 >
                   <div className={`bookshelf-books${displayCount === 0 ? " bookshelf-books--empty" : ""}`}>
@@ -1783,8 +2149,7 @@ function LibraryLanding({ onReturn }) {
                           >
                             <span className="shelf-volume__top" aria-hidden="true" />
                             <span className="shelf-volume__ornament" aria-hidden="true">{emblem}</span>
-                            <span className="shelf-volume__title">{entry.book.title}</span>
-                            <span className="shelf-volume__author">{entry.book.author}</span>
+                            <span className="shelf-volume__title">{shelfDisplayTitle(entry.book.title)}</span>
                             <span className="shelf-volume__bottom" aria-hidden="true">{entry.status === "READ" ? "✓" : entry.status === "READING" ? "◒" : "✦"}</span>
                           </button>
                         </div>
@@ -1840,8 +2205,7 @@ function LibraryLanding({ onReturn }) {
                   >
                     <span className="shelf-volume__top" />
                     <span className="shelf-volume__ornament">{spineEmblem(bookDragRef.current.entry.book.title)}</span>
-                    <span className="shelf-volume__title">{bookDragRef.current.entry.book.title}</span>
-                    <span className="shelf-volume__author">{bookDragRef.current.entry.book.author}</span>
+                    <span className="shelf-volume__title">{shelfDisplayTitle(bookDragRef.current.entry.book.title)}</span>
                     <span className="shelf-volume__bottom">{bookDragRef.current.entry.status === "READ" ? "✓" : bookDragRef.current.entry.status === "READING" ? "◒" : "✦"}</span>
                   </div>,
                   document.body,
@@ -1925,7 +2289,7 @@ function LibraryLanding({ onReturn }) {
                     <button className="library-current-reading__continue" type="button" onClick={() => openBook(currentReading)}>Continuar leitura <span aria-hidden="true">→</span></button>
                   </>
                 ) : (
-                  <p className="library-current-reading__empty">Nenhuma leitura em andamento. Abra um livro e marque como “Lendo” para acompanhá-lo aqui.</p>
+                  <p className="library-current-reading__empty">Nenhuma leitura em andamento. Abra um livro desejado e escolha “Começar a ler agora”, ou inicie uma leitura pelo catálogo.</p>
                 )}
               </section>
             </aside>
@@ -1938,6 +2302,7 @@ function LibraryLanding({ onReturn }) {
         accessToken={accessToken}
         onToken={setAccessToken}
         onClose={closeBook}
+        onEntryRemoved={(entryId) => setEntries((current) => current.filter((item) => item.id !== entryId))}
         onEntryUpdated={(updated) => {
           setEntries((current) => current.map((item) => item.id === updated.id ? updated : item));
           setOpenedEntry(updated);

@@ -9,6 +9,7 @@ from rest_framework import serializers
 from .models import (
     Book,
     LibraryEntry,
+    ReadingTask,
     Review,
     SharedLibrary,
     SharedLibraryBook,
@@ -98,6 +99,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             _raise_integrity_conflict(error, model_name="user")
 
 
+class ReadingTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReadingTask
+        fields = ("id", "title", "completed", "created_at", "completed_at")
+        read_only_fields = ("id", "created_at", "completed_at")
+
+
 class BookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
@@ -150,18 +158,18 @@ class LibraryEntrySerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context["request"].user
-        shelf_values = list(LibraryEntry.objects.filter(user=user).values_list("shelf", flat=True))
-        highest_shelf = max(shelf_values, default=0)
-        if "shelf" not in validated_data:
-            current_count = shelf_values.count(highest_shelf)
-            validated_data["shelf"] = highest_shelf + 1 if current_count >= SHELF_CAPACITY else highest_shelf
-        shelf_positions = LibraryEntry.objects.filter(
-            user=user,
-            shelf=validated_data["shelf"],
-        ).values_list("position", flat=True)
-        validated_data["position"] = max(shelf_positions, default=-1) + 1
-        entry = LibraryEntry(user=user, **validated_data)
-        return _save_validated(entry)
+        existing_entries = list(
+            LibraryEntry.objects.select_for_update()
+            .filter(user=user)
+            .order_by("shelf", "position", "-added_at", "pk")
+        )
+        entry = LibraryEntry(user=user, shelf=0, position=0, **validated_data)
+        _save_validated(entry)
+        for index, item in enumerate([entry, *existing_entries]):
+            item.shelf = index // SHELF_CAPACITY
+            item.position = index % SHELF_CAPACITY
+        LibraryEntry.objects.bulk_update([entry, *existing_entries], ["shelf", "position"])
+        return entry
 
     def update(self, instance, validated_data):
         candidate = _candidate(instance, LibraryEntry, validated_data)

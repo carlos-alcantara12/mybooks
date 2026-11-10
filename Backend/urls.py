@@ -11,6 +11,7 @@ from .views import (
     RegisterView,
     ReadingGoalView,
     ReadingSessionView,
+    ReadingTaskViewSet,
     ReadingStatsView,
     ReviewViewSet,
     SharedBookRemovalRequestViewSet,
@@ -25,6 +26,7 @@ router = DefaultRouter()
 router.register("books", BookViewSet, basename="book")
 router.register("library", LibraryEntryViewSet, basename="library-entry")
 router.register("reviews", ReviewViewSet, basename="review")
+router.register("reading-tasks", ReadingTaskViewSet, basename="reading-task")
 router.register("trending", TrendingBookViewSet, basename="trending")
 router.register("shared-libraries", SharedLibraryViewSet, basename="shared-library")
 router.register("shared-books", SharedLibraryBookViewSet, basename="shared-book")

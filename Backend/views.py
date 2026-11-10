@@ -18,6 +18,7 @@ from .models import (
     ReadingActivity,
     ReadingGoal,
     ReadingSession,
+    ReadingTask,
     Review,
     SharedBookRemovalRequest,
     SharedLibrary,
@@ -34,6 +35,7 @@ from .serializers import (
     LibraryEntryMoveSerializer,
     LibraryEntrySwapSerializer,
     ReviewSerializer,
+    ReadingTaskSerializer,
     SharedLibraryBookSerializer,
     SharedLibraryInvitationSerializer,
     SharedLibraryReadingSerializer,
@@ -198,6 +200,22 @@ class ReadingGoalView(APIView):
         return Response({"target_minutes": goal.target_minutes})
 
 
+class ReadingTaskViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ReadingTaskSerializer
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        return ReadingTask.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    def perform_update(self, serializer):
+        completed = serializer.validated_data.get("completed", serializer.instance.completed)
+        serializer.save(completed_at=timezone.now() if completed else None)
+
+
 class ReadingSessionView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -210,7 +228,18 @@ class ReadingSessionView(APIView):
             active = ReadingSession.objects.filter(user=request.user, ended_at__isnull=True).first()
             if active:
                 return Response({"active": self.serialize(active)})
-            session = ReadingSession.objects.create(user=request.user)
+            target_minutes = request.data.get("target_minutes")
+            target_pages = request.data.get("target_pages")
+            for field, value, maximum in (("target_minutes", target_minutes, 1440), ("target_pages", target_pages, 10000)):
+                if value is not None and (isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= maximum):
+                    raise ValidationError({field: f"A meta deve ser um n\u00famero inteiro entre 1 e {maximum}."})
+            session = ReadingSession.objects.create(
+                user=request.user,
+                target_minutes=target_minutes,
+                target_pages=target_pages,
+                chapter_notes=str(request.data.get("chapter_notes", ""))[:5000],
+                page_notes=str(request.data.get("page_notes", ""))[:5000],
+            )
             return Response({"active": self.serialize(session)}, status=status.HTTP_201_CREATED)
 
         if action == "stop":
@@ -232,6 +261,10 @@ class ReadingSessionView(APIView):
             "started_at": session.started_at,
             "ended_at": session.ended_at,
             "duration_seconds": session.duration_seconds,
+            "target_minutes": session.target_minutes,
+            "target_pages": session.target_pages,
+            "chapter_notes": session.chapter_notes,
+            "page_notes": session.page_notes,
         }
 
 
@@ -278,6 +311,7 @@ class BookDiscoveryView(APIView):
     def get(self, request):
         query = request.query_params.get("search", "").strip()
         genre = request.query_params.get("genre", "").strip()
+        popular = request.query_params.get("sort", "") == "popular" and bool(genre)
         if not query and not genre:
             raise ValidationError({"search": "Informe um título, autor ou gênero para pesquisar."})
         if len(query) > 180 or len(genre) > 100:
@@ -302,14 +336,15 @@ class BookDiscoveryView(APIView):
 
         warning = ""
         try:
-            external_results, external_count = search_external_books(query, genre, page)
+            external_results, external_count = search_external_books(query, genre, page, popular=popular)
         except ExternalBookCatalogError as error:
             external_results, external_count = [], 0
             warning = str(error)
 
         results = []
         seen = set()
-        for item in [*local_results, *external_results]:
+        ordered_results = [*external_results, *local_results] if popular else [*local_results, *external_results]
+        for item in ordered_results:
             key = (item["title"].casefold().strip(), item["author"].casefold().strip())
             if key in seen:
                 continue
@@ -323,6 +358,7 @@ class BookDiscoveryView(APIView):
             "next": has_next,
             "previous": page > 1,
             "warning": warning,
+            "ranking_basis": next((item.get("popularity_metric") for item in external_results if item.get("popularity_metric")), "") if popular else "",
         })
 
 
@@ -433,19 +469,16 @@ class LibraryEntryViewSet(viewsets.ModelViewSet):
                 shelves[target_shelf] = []
 
             destination = shelves[target_shelf]
-            if target_shelf != moving.shelf and len(destination) >= 6:
-                raise ValidationError({"shelf": "Essa prateleira já está cheia."})
             if target_position > len(destination):
                 raise ValidationError({"position": "A posição escolhida não existe nessa prateleira."})
 
             destination.insert(target_position, moving)
-            nonempty_shelves = [shelf_entries for _, shelf_entries in sorted(shelves.items()) if shelf_entries]
+            ordered_entries = [item for _, shelf_entries in sorted(shelves.items()) for item in shelf_entries]
             updated_entries = []
-            for shelf_index, shelf_entries in enumerate(nonempty_shelves):
-                for position, item in enumerate(shelf_entries):
-                    item.shelf = shelf_index
-                    item.position = position
-                    updated_entries.append(item)
+            for index, item in enumerate(ordered_entries):
+                item.shelf = index // 6
+                item.position = index % 6
+                updated_entries.append(item)
             LibraryEntry.objects.bulk_update(updated_entries, ["shelf", "position"])
 
         return Response(self.get_serializer(moving).data)

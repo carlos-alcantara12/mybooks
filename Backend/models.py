@@ -193,7 +193,25 @@ class ReadingGoal(models.Model):
         return f"Meta de {self.user}: {self.target_minutes} min/dia"
 
 
+class ReadingTask(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reading_tasks")
+    title = models.CharField("tarefa de leitura", max_length=160)
+    completed = models.BooleanField("concluída", default=False)
+    created_at = models.DateTimeField("criada em", auto_now_add=True)
+    completed_at = models.DateTimeField("concluída em", null=True, blank=True)
+
+    class Meta:
+        ordering = ["completed", "-created_at"]
+
+    def __str__(self):
+        return self.title
+
+
 class ReadingSession(models.Model):
+    target_minutes = models.PositiveSmallIntegerField("meta de tempo da sess\u00e3o", null=True, blank=True)
+    target_pages = models.PositiveSmallIntegerField("meta de p\u00e1ginas da sess\u00e3o", null=True, blank=True)
+    chapter_notes = models.TextField("anota\u00e7\u00f5es de cap\u00edtulos", blank=True, default="")
+    page_notes = models.TextField("anota\u00e7\u00f5es de p\u00e1ginas", blank=True, default="")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

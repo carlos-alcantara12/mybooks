@@ -9,6 +9,6 @@ npm install
 npm run dev
 ```
 
-Inicie também o backend Django em `http://127.0.0.1:8000`; o servidor de desenvolvimento do Vite encaminha as chamadas `/api/` para esse endereço. O Vite exibe no terminal o endereço local para abrir no navegador. Para gerar os arquivos de produção, execute `npm run build`.
+Inicie também o backend Django com `python manage.py runserver 127.0.0.1:8001`; o servidor de desenvolvimento do Vite encaminha as chamadas `/api/` para esse endereço. O Vite exibe no terminal o endereço local para abrir no navegador. Para gerar os arquivos de produção, execute `npm run build`.
 
 As frases são escolhidas localmente e a última exibida fica salva no `localStorage`, evitando repetições consecutivas. A animação respeita a preferência do sistema por movimento reduzido.
