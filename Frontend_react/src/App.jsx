@@ -15,6 +15,8 @@ import { Skeleton } from "./components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
 import TextType from "./components/TextType";
 import DriftWall from "./components/DriftWall";
+import StrokeText from "./components/StrokeText";
+import AnimatedContent from "./components/AnimatedContent";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 const WELCOME_QUOTE_KEY = "mybooks:last-welcome-quote";
@@ -129,6 +131,7 @@ async function fetchLibraryPageRequest(path, token, signal) {
 
 function WelcomeScreen({ onContinue }) {
   const [isLeaving, setIsLeaving] = useState(false);
+  const [step, setStep] = useState("welcome");
   const screenRef = useRef(null);
   const continueTimerRef = useRef(null);
   const [quote] = useState(chooseWelcomeQuote);
@@ -182,15 +185,20 @@ function WelcomeScreen({ onContinue }) {
   function handleKeyDown(event) {
     if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
-      handleContinue();
+      if (step === "welcome") setStep("intro");
+      else handleContinue();
     }
+  }
+
+  function handleStageClick() {
+    if (step === "welcome") setStep("intro");
   }
 
   return (
     <main
       ref={screenRef}
-      className={`welcome-screen${isLeaving ? " is-leaving" : ""}`}
-      onClick={handleContinue}
+      className={`welcome-screen${step === "intro" ? " is-intro" : ""}${isLeaving ? " is-leaving" : ""}`}
+      onClick={handleStageClick}
       onKeyDown={handleKeyDown}
       tabIndex={0}
       aria-label="Tela de início do MyBooks. Acesse para entrar ou criar sua conta."
@@ -229,7 +237,7 @@ function WelcomeScreen({ onContinue }) {
         <span className="frame-corner frame-corner--bottom-right" />
       </div>
 
-      <section className="welcome-content" aria-label="Boas-vindas">
+      {step === "welcome" ? <section className="welcome-content" aria-label="Boas-vindas">
         <div className="welcome-layout">
           <div className="welcome-brand-column">
             <div className="brand-lockup" aria-label="MyBooks">
@@ -260,7 +268,37 @@ function WelcomeScreen({ onContinue }) {
           </div>
 
         </div>
-      </section>
+      </section> : (
+        <section className="welcome-intro" aria-labelledby="welcome-intro-title">
+          <AnimatedContent className="welcome-intro__hero" trigger="mount" distance={32} duration={0.8} ease="power3.out" stagger={0.07}>
+            <p className="welcome-intro__eyebrow">MYBOOKS · UM CAPÍTULO DE CADA VEZ</p>
+            <h1 id="welcome-intro-title">Uma página de cada vez, sua próxima história começa aqui.</h1>
+            <p className="welcome-intro__lead">Leia no seu ritmo. Guarde suas descobertas. Compartilhe o que faz uma história especial.</p>
+          </AnimatedContent>
+
+          <AnimatedContent className="welcome-intro__features" trigger="mount" distance={24} duration={0.7} ease="power3.out" delay={0.12} stagger={0.13}>
+            <article className="welcome-intro__feature">
+              <span className="welcome-intro__number">01</span>
+              <h2>Sua leitura merece um lugar.</h2>
+              <p>Registre os livros que está lendo e guarde suas impressões.</p>
+            </article>
+            <article className="welcome-intro__feature">
+              <span className="welcome-intro__number">02</span>
+              <h2>Acompanhe cada página.</h2>
+              <p>Veja seu progresso avançar e celebre as metas que concluir.</p>
+            </article>
+            <article className="welcome-intro__feature">
+              <span className="welcome-intro__number">03</span>
+              <h2>Compartilhe boas histórias.</h2>
+              <p>Convide amigos para trocar recomendações e ler em companhia.</p>
+            </article>
+          </AnimatedContent>
+
+          <AnimatedContent className="welcome-intro__action" trigger="mount" distance={18} duration={0.7} ease="power3.out" delay={0.48}>
+            <button className="welcome-intro__button" type="button" onClick={handleContinue}>Quero começar <span aria-hidden="true">→</span></button>
+          </AnimatedContent>
+        </section>
+      )}
     </main>
   );
 }
@@ -1768,7 +1806,7 @@ function LibraryLanding({ onReturn }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, email, password }),
         });
-        const registrationData = await registrationResponse.json();
+        const registrationData = await readAuthResponse(registrationResponse);
         if (!registrationResponse.ok) {
           const detail = registrationData.detail || Object.values(registrationData).flat()[0];
           throw new Error(detail || "Não foi possível criar sua conta.");
@@ -1780,7 +1818,8 @@ function LibraryLanding({ onReturn }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-      const data = await response.json();
+      const data = await readAuthResponse(response);
+      if (response.ok && (!data.access || !data.refresh)) throw new Error("The server did not return access tokens. Try again.");
       if (!response.ok) throw new Error(data.detail || "Usuário ou senha inválidos.");
       window.localStorage.setItem("mybooks:access-token", data.access);
       window.localStorage.setItem("mybooks:refresh-token", data.refresh);
@@ -1789,9 +1828,25 @@ function LibraryLanding({ onReturn }) {
       setPassword("");
       setCreatingAccount(false);
     } catch (requestError) {
-      setError(requestError.message);
+      setError(requestError instanceof TypeError
+        ? "Nao foi possivel conectar ao servidor de autenticacao. Verifique o backend e tente novamente."
+        : requestError.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function readAuthResponse(response) {
+    const body = await response.text();
+    if (!body.trim()) {
+      throw new Error(response.ok
+        ? "O servidor de autenticacao retornou uma resposta vazia. Tente novamente."
+        : `O servidor de autenticacao retornou uma resposta vazia (HTTP ${response.status}).`);
+    }
+    try {
+      return JSON.parse(body);
+    } catch {
+      throw new Error(`O servidor de autenticacao respondeu em formato invalido (HTTP ${response.status}). Confira o backend e tente novamente.`);
     }
   }
 
@@ -2040,7 +2095,7 @@ function LibraryLanding({ onReturn }) {
           <Card as="section" className="login-card" aria-labelledby="library-title">
             <CardHeader className="login-card__header">
               <CardTitle as="h1" id="library-title" className={creatingAccount ? undefined : "login-title__single-line"}>
-                {creatingAccount ? "Abra sua primeira estante." : <>Seja <span className="login-title__greeting">bem-vindo(a)</span></>}
+                {creatingAccount ? "Abra sua primeira estante." : <StrokeText text="Seja bem-vindo(a)" className="login-title__stroke" style={{ display: "inline-block", width: "var(--stroke-text-width)", verticalAlign: "baseline", lineHeight: 1 }} />}
               </CardTitle>
               <CardDescription className="login-card__description">
                 {creatingAccount ? "Crie sua conta e dê um lugar às histórias que você ama." : "Entre para registrar leituras e encontrar seu próximo livro."}

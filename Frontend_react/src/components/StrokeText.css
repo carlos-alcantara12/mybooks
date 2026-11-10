@@ -1,0 +1,45 @@
+.stroke-text {
+  display: block;
+  width: 100%;
+  line-height: 0;
+}
+
+.stroke-text__svg {
+  display: block;
+  width: 100%;
+  max-width: var(--stroke-text-width, 600px);
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+.stroke-text__stroke,
+.stroke-text__fill {
+  user-select: none;
+}
+
+.stroke-text__stroke {
+  paint-order: stroke fill;
+}
+
+.login-title__stroke.stroke-text {
+  width: var(--stroke-text-width, 280px);
+  max-width: 100%;
+  vertical-align: baseline;
+}
+
+.login-title__stroke .stroke-text__svg {
+  max-width: 100%;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .login-title__stroke.stroke-text {
+    width: min(var(--stroke-text-width, 220px), 58vw);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stroke-text__stroke,
+  .stroke-text__fill { animation: none; }
+}
